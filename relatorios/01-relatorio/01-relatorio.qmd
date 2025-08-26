@@ -25,241 +25,699 @@ execute:
 options(digits = 5, scipen = 999)
 
 # Carrega os pacotes usados
-library(here)       # para trabalhar com caminhos relativos
-library(tidyverse)  # metapacote para ciência de dados 
+library(here)
+library(tidyverse)
 ```
 
 
 
-# Introdução ao Sistema Quarto
+# Objetos e Variáveis em R
+
+Em R, os termos "variável" e "objeto" são frequentemente usados de 
+forma intercambiável, o que pode causar confusão inicial, especialmente 
+para quem já possui experiência com outras linguagens de programação. 
+Esta seção esclarece essa terminologia para facilitar seu aprendizado.
+
+::: {.callout-tip}
+## A Filosofia "Tudo é um Objeto" em R
+
+R segue uma filosofia fundamental: **tudo que existe em R é um objeto**. 
+Isso significa que todos os elementos que você manipula — desde 
+números simples até funções complexas — são tratados como objetos. 
+
+Esta abordagem difere de muitas outras linguagens de programação que 
+fazem distinção clara entre "variáveis primitivas" (como números) e 
+"objetos" (estruturas mais complexas).
+
+Quando criamos algo em R usando um operador de atribuição (`<-`), 
+estamos essencialmente:
+
+1. Criando um objeto na memória do computador
+2. Atribuindo um nome a esse objeto para referenciá-lo posteriormente
+
+Por exemplo, em `idade <- 25`, criamos um objeto do tipo numérico 
+com valor 25 e o nomeamos como "idade". Este nome funciona como uma 
+etiqueta que nos permite acessar e manipular o objeto.
+
+#### Por que usarei "variável" e "objeto" de forma intercambiável? {.unnumbered}
+
+Por questões de clareza:
+
+- Utilizarei o termo **variável** principalmente quando falarmos de 
+valores simples que "variam", como números, textos ou valores lógicos. 
+Este termo é mais intuitivo e comum em análise de dados.
+
+- Utilizarei o termo **objeto** quando precisarmos enfatizar a 
+natureza mais complexa de algumas estruturas em R, como data frames, 
+tibbles, listas, funções entre outros.
+
+- Em muitos contextos, usarei ambos os termos de forma intercambiável, 
+refletindo a prática comum na comunidade R.
+
+Esta flexibilidade terminológica espelha a documentação oficial da 
+linguagem R e a literatura sobre a linguagem.
+:::
 
 
-## O que é o Quarto?
-
-O sistema de publicação técnica **Quarto** integra texto e código em um 
-mesmo documento. É usado para criar relatórios, artigos, apresentações, 
-dashboards, entre outros formatos.
-
-
-## Principais características
-
-- Suporte a múltiplas linguagens (R, Python, Julia).
-- Documentos reproduzíveis: texto e código executável.
-- Saídas em HTML, PDF, Word e slides.
-- Integração com Git e GitHub.
-
-
-## Estrutura de um documento Quarto
-
-1. **Cabeçalho YAML**: título, autor, data, formato de saída.
-2. **Texto em Markdown**: organização em seções.
-3. **Blocos de código**: execução de R ou outra linguagem.
-
-
-## Atalhos importantes no RStudio (Windows)
-
-- Inserir bloco de código: `Ctrl + Alt + I`
-- Executar linha ou seleção: `Ctrl + Enter`
-- Executar bloco inteiro: `Ctrl + Shift + Enter`
-- Renderizar documento: `Ctrl + Shift + K`
-- Inserir operador `<-`: `Alt + -`
 
 
 
+# Variáveis e Atribuição de Valores
 
-# Introdução à Linguagem R
-
-
-## Operadores básicos
-
-Alguns dos principais operadores da linguagem R estão exibidos na @tbl-1.
-
-
-| Operador(es)            | Descrição                     | Exemplo em R    |
-|-------------------------|-------------------------------|-----------------|
-| `<-`                  | Atribuição de valores           | `x <- 5`        |
-| `+`                   | Adição                          | `2 + 3`         |
-| `-`                   | Subtração                       | `7 - 4`         |
-| `*`                   | Multiplicação                   | `6 * 2`         |
-| `/`                   | Divisão                         | `10 / 2`        |
-| `^`                   | Potenciação                     | `3 ^ 2`         |
-| `<`, `<=`, `>`, `>=`  | Comparações relacionais         | `4 > 2`         |
-| `==`, `!=`            | Igualdade e diferença           | `5 == 5`        |
-| `&`, `|`, `!`         | Operadores lógicos (E, OU, NÃO) | `TRUE & FALSE`  |
-: Operadores básicos {#tbl-1}
-
-
-Seguem alguns exemplos de uso dos operadores:
+Em R, a atribuição de valores a variáveis é fundamental para armazenar e 
+manipular dados. Por exemplo, podemos criar variáveis para armazenar 
+informações financeiras, como receitas, custos e lucros, que são 
+essenciais para análises em Administração.
 
 ```{r}
-# atribuição de valor
-x <- 10
+# Exemplo: Atribuição de valores a variáveis
+receita_mensal <- 850000  # Receita mensal da empresa
+custos_mensais <- 500000  # Custos mensais
+
+# Cálculo do lucro
+lucro_mensal <- receita_mensal - custos_mensais  
+lucro_mensal
 ```
 
-```{r}
-# adição
-y <- x + 5
+Todas as instruções R com as quais criamos variáveis ou objetos têm 
+o mesmo formato:
 
-# exibe o resultado
-y
+```{r}
+#| eval: false
+#| echo: true
+
+nome_do_objeto <- valor
 ```
 
+Lemos esse código como: "*valor é atribuído a nome_objeto*"
+
+Em R, podemos atribuir informações às variáveis (ou objetos) utilizando 
+os seguintes operadores de atribuição:
 
 ```{r}
-# subtração
-z <- y - 3
-# exibe o resultado
-z
+#| label: op-atribuicao
+
+# Diferentes formas de atribuição em R
+# Mesmo resultado, estilos diferentes
+
+# Operador recomendado (<-) 
+receita_mensal <- 850000
+receita_mensal
+
+# Alternativa (=), funciona, mas menos recomendado
+lucro_operacional = 320000
+lucro_operacional
 ```
 
+Em R, como em todas as linguagens, fazemos muitas atribuições de 
+valores a variáveis, e não é agradável digitar o operador manualmente. 
+Assim, o RStudio oferece um atalho de teclado simples para inserir 
+o operador `<-`:
+
+- Atalho do RStudio: `Alt + -` (Windows/Linux) ou `Option + -` (Mac)
+
+- Observe que o RStudio automaticamente envolve `<-` 
+com **espaços**, o que é uma boa prática de formatação de código.
+
+- Códigos sem espaços são difíceis de ler compare: 
+
+`lucro<-receita-custos` versus 
+
+`lucro <- receita - custos`
+
+
+::: {.callout-tip}
+## Boas Práticas para Escrever Códigos R
+
+Nomes de variáveis devem começar com uma letra e podem conter 
+`letras`, `números`, `_` e `.`
+
+É importante criar nomes de objetos **simples e descritivos** que 
+representem claramente seu conteúdo. Em Administração, é comum 
+trabalhar com dados financeiros, de desempenho ou de mercado, 
+então use nomes que facilitem a compreensão do código.
+
+**Exemplos de boas práticas**:
+
 ```{r}
-# multiplicação
-w <- z * 2
-# exibe o resultado
-w
+#| eval: false
+
+# Margem bruta da empresa
+margem_bruta <- 0.35  
+
+# Fluxo de caixa operacional
+fluxo_caixa_operacional <- receita - custos  
 ```
 
+**Estilos**:
+
+- *snake_case*: `margem_bruta`, `fluxo_caixa_operacional`
+- *CamelCase*: `MargemBruta`, `FluxoCaixaOperacional`
+
+Escolha um estilo e mantenha a consistência em todo o código.
+:::
+
+
+::: {.callout-warning}
+## Práticas a evitar
+
+Evite os seguintes erros comuns:
+
+1. **Nomes genéricos**:
+
+- Ruim: `dados`, `resultado`, `x`
+- Melhor: `receita_anual`, `lucro_liquido`
+
+
+2. **Nomes muito longos**:
+
+- Ruim: `calculo_da_margem_de_contribuicao_ajustada`
+- Melhor: `margem_contribuicao`
+
+
+3. **Espaços nos nomes**:
+
+- Ruim: `margem bruta <- 0.35` (causa erro)
+- Melhor: `margem_bruta <- 0.35`
+
+
+4. **Nomes começando com números**:
+
+- Ruim: `1trimestre <- "Janeiro-Março"` (inválido)
+- Melhor: `trimestre1 <- "Janeiro-Março"`
+
+
+5. **Sobrescrever funções existentes**:
+
+- Ruim: `mean <- 10` (sobrescreve a função `mean()`)
+- Melhor: `media <- 10`
+:::
+
+
+::: {.callout-tip}
+## Como Imprimir Informações sobre Objetos em R
+
+Em R, existem algumas formas simples e eficazes de exibir 
+informações sobre objetos ou variáveis. Esses métodos são ideais 
+para visualizar valores, depurar código ou criar saídas personalizadas. 
+Abaixo estão as principais formas:
+
+**1. Usando** `print()`
+
+A função `print()` é a maneira mais básica de exibir o conteúdo de 
+um objeto:
+
 ```{r}
-# divisão
-v <- w / 4
-# exibe o resultado
-v
+# Exemplo: Usando print()
+receita <- 850000.50
+print(receita)  # Exibe o valor da variável
 ```
 
-```{r}
-# potenciação
-u <- v^2
+**2. Imprimindo diretamente no console**
 
-# exibe o resultado
-u
+Em R, você pode exibir o conteúdo de um objeto simplesmente 
+digitando seu nome no console. Isso chama automaticamente 
+a função `print()` implicitamente:
+
+```{r}
+# digitar o nome do objeto exibe seu valor
+receita  
 ```
 
+**3. Usando a função** `cat()` 
+
+A função `cat()` permite exibir informações de forma mais 
+personalizada, combinando texto e valores. É útil para criar 
+mensagens ou relatórios simples.
+
 ```{r}
-# comparação: verifica se x é maior que 5
-x > 5
+# a funçaão cat() combina texto e valor
+cat("A receita mensal é:", receita)  
 ```
 
-```{r}
-# igualdade: verifica se x é igual a 10
-x == 10
-```
+**Resumo**:
+
+- Use `print()` para exibir valores de forma explícita.
+
+- Digite o nome do objeto diretamente no console para exibir 
+  seu valor de forma rápida.
+  
+- Use `cat()` para criar saídas personalizadas, combinando 
+  texto e valores.
+:::
 
 
-```{r}
-# operador lógico: verifica se x é maior que 5 e menor que 15 
-x > 5 & x < 15
-```
+
+
+
+# Tipos Atômicos de Dados
+
+Em R, os dados são armazenados em diferentes tipos atômicos (básicos), 
+cada um com características específicas. A @tbl-1 mostra os principais 
+tipos.
+
+Tipo          | Classe      | Descrição                          
+------------- | ----------- | ----------------------------------
+`double`      | `numeric`   | um vetor contendo valores reais (números com casas decimais)
+`integer`     | `numeric`   | um vetor contendo valores inteiros 
+`character`   | `character` | um vetor contendo caracteres
+`logical`     | `logical`   | um vetor contendo valores lógicos (`TRUE`/`FALSE`)
+
+: Principais Tipos {#tbl-1}
+
+
+A @tbl-2 exibe alguns tipos especiais que podem aparecer em análises de 
+dados. 
+
+Tipo       | Descrição    
+-----------|---------------------------------------------  
+`NA`       | `Not Available`: representa dados faltantes
+`NaN`      | `Not a Number`: (ex: `0 / 0`)
+`Inf`      | $+ \infty$ ou $- \infty$: (ex: `1 / 0`)
+
+: Tipos Especiais {#tbl-2}
+
+
+## Exemplos
 
 ```{r}
-# operador lógico: verifica se x é maior que 5 ou menor que 0
-x > 5 | x < 0
-```
-
-```{r}
-# exibe x
+# tipo double
+x  <- 1.5
 x
-
-# operador lógico: negação de uma condição
-! (x > 5)
-```
-
-
-
-
-## Tipos atômicos de dados em R
-
-Os principais tipos atômicos de dados em R estão listados na @tbl-2.
-
-
-| Tipo        | Classe      | Descrição        |
-| ----------- | ----------- | ---------------- |
-| `double`    | `numeric`   | valores reais    |
-| `integer`   | `numeric`   | valores inteiros |
-| `character` | `character` | texto            |
-| `logical`   | `logical`   | verdadeiro/falso |
-: Tipos básicos {#tbl-2}
-
-
-Exemplos de criação de variáveis:
-
-```{r}
-# tipo  double
-x <- 1.5 # valor real
 ```
 
 ```{r}
-# verifica o tipo e a classe
 typeof(x)
-class(x)
 ```
 
 
 ```{r}
 # tipo integer
-y <- 10L    
+y <- 10L
+y
 ```
 
-```{r} 
-# verifica o tipo e a classe
+```{r}
 typeof(y)
-class(y)
 ```
-
 
 ```{r}
 # tipo character
-z <- "administração"
+z <- "mestrado" # ou z <- 'mestrado'
+z
 ```
 
 ```{r}
-# verifica o tipo e a classe
 typeof(z)
-class(z)
 ```
-
 
 ```{r}
 # tipo logical
-w <- TRUE   
+w <- TRUE # ou FALSE
+w
 ```
 
-
 ```{r}
-# verifica o tipo e a classe
 typeof(w)
-class(w)
 ```
 
-
-
-
-## Estruturas de dados
-
-
-### Vetores
 
 ```{r}
-# custos de projetos em mil reais
-custos <- c(12, 15, 9, 14)
-mean(custos)  # média
+# Tipo NaN
+e <- 0 / 0
+e
 ```
 
 
-### Data frames
 
-Em R, uma *data frame* é uma estrutura de dados bidimensional usada para 
+::: {.callout-tip}
+## Diferença entre `typeof` e `class`
+
+Em R, as funções `typeof` e `class` fornecem informações diferentes 
+sobre um objeto:
+
+- **`typeof`**: Retorna o **tipo interno** do objeto, ou seja, 
+como R armazena o objeto na memória. Por exemplo:
+
+```{r}
+# double (números com casas decimais)
+receita <- 850000.50 
+receita
+```
+
+```{r}
+# integer (números inteiros)
+total_funcionarios <- 50L
+total_funcionarios  
+```
+
+```{r}
+typeof(receita)  # Retorna "double"
+```
+
+```{r}
+typeof(total_funcionarios)  # Retorna "integer"
+```
+
+- **`class`**: Retorna a **classe** do objeto, que define como R 
+trata o objeto em operações e funções. Por exemplo:
+
+```{r}
+class(receita) # Retorna "numeric"
+```
+
+```{r}
+class(total_funcionarios)  # Retorna "numeric"
+```
+
+Em resumo:
+
+- Use `typeof` para entender como R armazena o objeto internamente.
+- Use `class` para entender como R trata o objeto em operações e funções.
+:::
+
+
+
+
+
+# Estruturas de Dados
+
+Em R, os dados são organizados em diferentes estruturas, cada uma adequada 
+a tipos específicos de operações e análises. As principais estruturas 
+de dados são:
+
+- **Vetores**: Sequências unidimensionais de elementos homogêneos.
+- **Matrizes**: Estruturas bidimensionais homogêneas.
+- **Data Frames**: Estruturas bidimensionais heterogêneas, semelhantes a tabelas.
+- **Tibbles**: Versões modernas e mais robustas dos data frames.
+- **Arrays**: Estruturas multidimensionais homogêneas.
+- **Listas**: Estruturas flexíveis que podem conter diferentes tipos de objetos simultaneamente.
+
+A compreensão dessas estruturas facilita uma escolha eficiente para diferentes contextos analíticos, sendo essencial para utilizar efetivamente os pacotes 
+e recursos avançados do R.
+
+
+
+
+## Vetor 
+
+- Vetores são a **estrutura fundamental** da linguagem R.
+
+- Toda variável simples no R é, por definição, um vetor com comprimento 
+igual a 1.
+
+- Os elementos em um vetor são sempre do mesmo tipo (homogêneos).
+
+- Dominar vetores é importante para compreender estruturas mais complexas, 
+como data frames e listas.
+
+
+### Criação de Vetores
+
+A função básica para criar vetores é `c()`, que concatena valores.
+
+```{r}
+# Cria um vetor numérico simples
+dados <- c(3.5, 4.2, 6.7, 2.3)
+dados
+```
+
+O operador `:` cria uma sequência de números inteiros.
+
+```{r}
+# Cria uma sequência de números inteiros de 1 a 10
+sequencia <- 1:10
+sequencia
+```
+
+A função `seq()` cria uma sequência de números com um intervalo específico.
+
+```{r}
+# Cria uma sequência espaçada uniformemente de 0 a 1 com intervalo 0.25
+sequencia <- seq(0, 1, by = 0.25)
+sequencia
+```
+
+Cria um vetor de caracteres
+```{r}
+instituicoes <- c("IFMG", "UFV", "USP")
+```
+
+
+
+A função `rep()` cria um vetor repetindo um valor.
+
+```{r}
+# Cria um vetor lógico 
+status <- rep(TRUE, times = 5)
+status
+```
+
+
+### Indexação de vetores
+
+Utilize colchetes `[]` para selecionar elementos. Lembre-se de que a 
+indexação em R começa em 1.
+
+```{r}
+# Selecional o primeiro elemento do vetor
+dados[1]
+```
+
+```{r}
+# Seleciona o último elemento do vetor
+# a função length calcula o comprimento/tamanho do vetor
+dados[length(dados)]
+```
+
+```{r}
+# Remove terceiro elemento
+dados[-3]
+```
+
+```{r}
+# Seleciona os elementos maiores que 4
+dados[dados > 4]
+```
+
+
+::: {.callout-tip}
+## Coerção implícita em vetores
+
+Se você combinar tipos diferentes em um mesmo vetor, R converte 
+automaticamente todos os elementos para um único tipo mais flexível:
+
+```{r}
+# Todos os elementos serão convertidos para "character"
+vetor <- c(5, "R", TRUE)  
+vetor
+```
+
+```{r}
+class(vetor)
+```
+:::
+
+
+
+
+## Matrizes
+
+Matrizes são estruturas bidimensionais que organizam elementos homogêneos 
+em linhas e colunas. Em análises estatísticas, econométricas e métodos 
+numéricos, matrizes desempenham um papel crítico, especialmente devido à 
+eficiência computacional das operações matriciais.
+
+### Características Fundamentais
+
+- **Homogeneidade**: Todos os elementos têm o mesmo tipo.
+- **Bidimensionalidade**: Estrutura formada por linhas e colunas.
+- **Indexação**: Elementos acessados por `[linha, coluna]`.
+- **Operações otimizadas**: Eficientes para cálculos matriciais.
+
+
+### Criação de Matrizes
+
+A função principal para criar matrizes é `matrix()`, cuja forma geral é:
+
+```r
+matrix(data, nrow, ncol, byrow = FALSE)
+```
+
+Os principais argumentos são:
+
+- `data`: vetor de elementos que serão colocados na matriz. Se o número 
+de elementos não corresponder exatamente ao número total de posições da 
+matriz (`nrow * ncol`), R reciclará os valores, emitindo um aviso.
+
+- `nrow`: número de linhas da matriz.
+
+- `ncol`: número de colunas da matriz.
+
+- `byrow`: define a ordem de preenchimento:
+
+  - `FALSE` *(padrão)*: preenchimento por **colunas** (primeiro preenche 
+  toda a 1ª coluna, depois a 2ª, e assim por diante).
+  
+  - `TRUE`: preenchimento por **linhas** (primeiro preenche toda a 1ª linha, 
+  depois a 2ª, e assim por diante).
+
+**Observação**: É suficiente indicar apenas `nrow` ou `ncol` — R calculará 
+a outra dimensão automaticamente a partir do comprimento do vetor `data`.
+
+**Exemplo 1** Criando uma matriz especificando `nrow`
+
+Neste caso, como `byrow = FALSE` (padrão), o preenchimento ocorre 
+**por colunas**.
+
+```{r}
+# Cria matriz 3 x 3, preenchida por colunas (padrão)
+A <- matrix(c(2, 1, 2,  # 1ª coluna
+              1, 4, 1,  # 2ª coluna
+              3, 2, 5), # 3ª coluna
+            nrow = 3)
+
+# exibe a matriz
+A
+```
+
+
+**Exemplo 2** Cria uma matriz especificando `ncol`
+
+Ao indicar `ncol`, a quantidade de linhas é determinada automaticamente.
+
+```{r}
+# Cria matriz com 3 colunas, preenchida por colunas (default)
+B <- matrix(1:9, ncol = 3)
+
+# exibe a matriz
+B
+```
+
+
+
+**Exemplo 3** Cria uma matriz preenchendo por linhas
+
+O argumento `byrow = TRUE` altera a ordem de preenchimento.
+
+```{r}
+# Matriz 3 x 3, preenchida por linhas
+C <- matrix(c(4, 2, 1,  # 1ª linha
+              3, 5, 2,  # 2ª linha
+              1, 2, 6), # 3ª linha
+            ncol = 3,
+            byrow = TRUE)
+# exibe a matriz
+C
+```
+
+
+
+| Argumentos usados          | Ordem de preenchimento |
+| -------------------------- | ---------------------- |
+| `byrow = FALSE` *(padrão)* | Por colunas            |
+| `byrow = TRUE`             | Por linhas             |
+: Resumo - Criação de Matrizes {#tbl-3}
+
+
+### Indexação de Matrizes
+
+A indexação em matrizes usa a notação `mat[i, j]`, onde `i` indica 
+**linhas** e `j` indica **colunas**. Se `i` ou `j` for omitido, significa 
+“todas as linhas/colunas”, respectivamente.
+
+```{r}
+# cria uma matriz 3 x 4
+A <- matrix(1:12, nrow = 3, ncol = 4, byrow = TRUE)
+A
+```
+
+```{r}
+# extrai o elemento da 2ª linha, 3ª coluna
+A[2, 3]    
+```
+
+```{r}
+# extrai toda a 2ª linha (retorna um vetor por padrão)
+A[2, ]     
+```
+
+```{r}
+# extrai toda a 3ª coluna (retorna um vetor por padrão)
+A[, 3]     
+```
+
+```{r}
+# extrai a submatriz (linhas 1–2, colunas 2–4)
+A[1:2, 2:4]
+```
+
+Índices negativos **removem** posições (não podem misturar positivos e 
+negativos):
+
+```{r}
+# remove a 1ª linha
+A[-1, ]  
+```
+
+```{r}
+# remove as colunas 1 e 4
+A[, -c(1, 4)] 
+```
+
+É possível alterar elementos de uma matriz usando indexação:
+
+```{r}
+# altera um elemento
+A[1, 1] <- 100         
+```
+
+```{r}
+# zera a 4ª coluna
+A[, 4] <- 0      
+```
+
+```{r}
+# substitui elementos < 5 por NA
+A[A < 5] <- NA         
+```
+
+
+::: {.callout-tip}
+## Indexação mantendo matriz
+
+Ao selecionar uma única linha/coluna, R “reduz” para vetor. Caso necessário, use `drop = FALSE` 
+para que uma matriz seja retornada:
+
+```{r}
+# Extrai a terceira coluna como matriz 3x1
+A[, 3, drop = FALSE]  
+```
+
+```{r}
+# extrai a segunda linha como matriz 1x4
+A[2, , drop = FALSE]  
+```
+:::
+
+
+
+
+## Data Frame
+
+Em R, uma **data frame** é uma estrutura de dados bidimensional usada para 
 armazenar e manipular conjuntos de dados tabulares. É o formato mais comum 
 para trabalhar com dados importados de arquivos CSV, Excel, bancos de dados, 
 entre outros.
 
-Características principais de uma data frame:
+### Características principais
 
 - **Organização em linhas e colunas**: cada coluna representa uma variável 
 e cada linha representa uma observação.
 
 - **Tipos de dados heterogêneos**: diferentes colunas podem conter tipos 
-distintos (numéricos, caracteres, lógicos, fatores etc.), mas dentro de 
-cada coluna os elementos devem ser do mesmo tipo.
+distintos (numéricos, caracteres, lógicos, fatores etc.), mas dentro de cada 
+coluna os elementos devem ser do mesmo tipo.
 
 - **Compatibilidade com funções estatísticas e gráficas**: a maioria das 
 funções de análise em R aceita data frames como entrada.
@@ -268,73 +726,70 @@ funções de análise em R aceita data frames como entrada.
 opcionalmente linhas podem ter nomes (`rownames`).
 
 
+### Criação de data frame
+
 A função básica para criar uma data frame é `data.frame()`:
 
 ```{r}
-# cria um data frame simples
+# Crian um data frame simples
 df <- data.frame(
   nome   = c("Ana", "Bruno", "Carla"),
   idade  = c(23, 35, 29),
   ativo  = c(TRUE, FALSE, TRUE)
 )
 
+# exibe a df
 df
 ```
 
 
-Podemos obter informações sobre a estrutura de uma data frame usando funções 
-como:
+### Estrutura interna
 
 ```{r}
-# função que exibe a estrutura de uma data frame
-str(df)       
+# a função str (de structure) exibe uma visão detalhada de uma df
+str(df)   
 ```
 
 ```{r}
-# função que exibe os nomes das colunas/variáveis
-names(df)     
+# retorna o nomes das colunas
+names(df) 
 ```
 
 ```{r}
-# função que exibe o número de linhas
-nrow(df)     
+# retorna o número de linhas
+nrow(df)  
+```
+
+```{r} 
+# retorna o número de colunas
+ncol(df)  
+```
+
+
+### Indexação de Data Frames
+
+```{r}
+# por nome da coluna
+df$idade
 ```
 
 ```{r}
-# função que exibe o número de colunas
-ncol(df)      
+# extrai a segunda coluna pelo índice
+df[, 2]
 ```
-
-
-
-Podemos indexar (acessar ou selecionar) diferentes elementos de uma data frame 
-usando as seguintes sintaxes:
 
 ```{r}
-# seleciona uma coluna pelo nome
-df$idade      
+# extrai a segunda linha pelo índice
+df[2, ]
 ```
-
 
 ```{r}
-# seleciona a segunda coluna pelo índice
-df[, 2]       
+# extrai o elemento da linha 1 e coluna 3
+df[1, 3]
 ```
 
 
-```{r}
-# seleciona uma linha pelo índice
-df[2, ]      
-```
-
-
-```{r}
-# seleciona um elemento específico (linha, coluna)
-df[1, 3]      # linha 1, coluna 3
-```
-
-
-Boas práticas com data frames:
+### Boas práticas
 
 - Sempre nomear colunas/variáveis de forma clara e sem espaços.
 - Manter consistência de tipos em cada coluna.
@@ -342,157 +797,1803 @@ Boas práticas com data frames:
 
 
 
-### Tibbles
 
-Uma **`tibble`** é uma versão moderna da `data.frame`, fornecida pelo 
-pacote **`tibble`** (parte do **tidyverse**). Foi projetada para ser mais 
-consistente, previsível e amigável na análise de dados, especialmente 
-quando combinado com pacotes do tidyverse.
+## Tibbles
+
+Uma **`tibble`** é uma versão moderna da `data.frame`, fornecida pelo pacote **`tibble`** (parte do **tidyverse**). Foi projetada para ser mais consistente, previsível e amigável na análise de dados, especialmente quando combinado com 
+pacotes do tidyverse.
 
 
-Podemos criar uma `tibble` usando a função `tibble()` do pacote 
-`tibble`:
+### Criação de tibble
 
 ```{r}
+# cria uma tibble simples
 tb <- tibble(
   nome   = c("Ana", "Bruno", "Carla"),
   idade  = c(23, 35, 29),
   ativo  = c(TRUE, FALSE, TRUE)
 )
 
+# exibe a tb
 tb
+```
+
+
+Comparação`data.frame` vs `tibble`
+
+```{r}
+# Criando um data.frame base
+df <- data.frame(
+  nome   = c("Ana", "Bruno", "Carla"),
+  idade  = c(23, 35, 29),
+  ativo  = c(TRUE, FALSE, TRUE)
+)
+
+# exibe/imprime a df
+df
+```
+
+```{r} 
+# Criando um tibble equivalente
+tb <- as_tibble(df)
+
+# exibe/imprime a tb
+tb     
+```
+
+
+Diferença na indexação por índice:
+
+```{r}
+# Retorna um vetor numérico (por padrão)
+df[, 2]   
+```
+
+```{r}
+# Retorna uma tibble com 1 coluna
+tb[, 2]   
+```
+
+
+Diferença no tratamento de caracteres
+
+```{r}
+# No data.frame (versões antigas do R), character → factor automaticamente
+df_base <- data.frame(nome = c("Ana", "Bruno"))
+str(df_base)
+
+# No tibble, character permanece character
+tb_base <- tibble(nome = c("Ana", "Bruno"))
+str(tb_base)
+```
+
+
+Conversão entre estruturas:
+
+```{r}
+# De data.frame para tibble
+tb2 <- as_tibble(df)
+
+# De tibble para data.frame
+df2 <- as.data.frame(tb)
+```
+
+
+Quando usar cada uma?
+
+- `data.frame`: adequada para scripts que usam R base, integração com 
+funções antigas e maior compatibilidade geral.
+
+- `tibble`: preferida em fluxos de trabalho com tidyverse, pois oferece 
+impressão mais limpa, mensagens de erro mais claras e comportamento 
+consistente.
+
+
+
+
+## Array
+
+Em R, um **array** é um vetor com atributos adicionais de **dimensão** (`dim`) 
+e, opcionalmente, nomes das dimensões (`dimnames`). Arrays organizam dados 
+homogêneos em estruturas multidimensionais, sendo especialmente úteis 
+quando precisamos de operações matemáticas eficientes ao longo de múltiplas 
+dimensões.
+
+
+### Criação e atributos básicos
+
+```{r}
+# Array 3 x 4 x 2 (linhas x colunas x "blocos")
+A <- array(1:24, dim = c(3, 4, 2))
+A
+```
+
+```{r}
+dim(A)        # c(3, 4, 2)
+```
+
+```{r}
+is.array(A)   # TRUE
+```
+
+```{r}
+is.matrix(A)  # FALSE (pois tem 3 dimensões)
+```
+
+
+### Array 1D e 2D (matriz)
+
+```{r}
+# Array 1D: parece vetor, mas é array
+a1 <- array(1:5, dim = 5)
+a1
+```
+
+```{r}
+# mostra a estrutura do array
+str(a1)        
+```
+
+```{r}
+# verifica se é um array
+is.array(a1)   
+```
+
+```{r}
+# verifica se é um vetor
+# Retorna FALSE (tem atributo 'dim')
+is.vector(a1)  
+```
+
+```{r}
+# Array 2D: é uma matriz
+M <- array(1:6, dim = c(2, 3))
+M
+```
+
+```{r}
+# verifica se é uma matriz
+is.matrix(M) 
+```
+
+```{r}
+# retorna a classe do objeto
+class(M) 
 ```
 
 
 
 
-## Funções matemáticas e estatísticas
+## List
 
-R possui diversas funções que facilitam cálculos matemáticos e estatísticos diretamente aplicáveis a vetores ou colunas de data frames ou tibbles, 
-vejamos algumas delas:
+Em R, uma **lista** é a **estrutura mais flexível** da linguagem: ela pode 
+armazenar objetos de **tipos e comprimentos diferentes** (vetores, matrizes, 
+data frames, modelos, funções ou **outras listas** — listas *aninhadas*). 
+
+Muitos resultados de funções estatísticas (por exemplo, `lm`) são listas com componentes nomeados, o que facilita inspeção e extração.
+
+
+### Conceitos essenciais
+
+- **Heterogeneidade**: cada componente pode ter tipo e tamanho distintos.
+- **Nomeação**: componentes podem (e devem) ter **nomes** claros.
+- **Indexação**:
+
+  - `L[[i]]` ou `L[["nome"]]` retorna **o objeto** no componente.
+  - `L[i]` retorna uma **sublista**.
+  - `L$nome` atalho para acessar por nome.
+
+- **Nota**: listas são ideais para **simulações (Monte Carlo, bootstrap)**, 
+em que cada replicação pode produzir um pequeno “pacote” de resultados.
+
+
+
+### Estrutura básica e acesso
+
+```{r}
+# Cria uma lista (texto, vetor, matriz, data frame)
+L <- list(
+  descricao = "exemplo",
+  params    = c(alpha = 0.05, B = 1000),
+  M         = matrix(1:4, nrow = 2),
+  dados     = data.frame(x = 1:3, y = c(2, 4, 6))
+)
+
+# exibe a lista
+L
+```
+
+```{r}
+# estrutura da lista
+str(L)          
+```
+
+```{r}
+# indexação por nome (objeto)
+L$dados        
+```
+
+```{r}
+# indexação por nome (objeto)
+L[["params"]]   
+```
+
+```{r}
+ # extrai um sublista contendo apenas o terceiro componente
+L[3]           
+```
+
+
+
+## Iteração e aplicação de funções
+
+A *família apply* oferece funções para aplicar operações sobre estruturas 
+como listas, vetores, matrizes e arrays, evitando laços `for` explícitos e 
+tornando o código mais limpo e legível.
+
+
+### Funções para listas e vetores: `lapply()`, `sapply()` e `vapply()`
+
+`lapply(X, FUN, ...)`
+
+- *Entrada*: vetor atômico, **lista** ou objeto `expression` (outros objetos 
+são coercíveis via `as.list`).
+
+- *Saída*: **lista** (sempre do mesmo comprimento de `X`).
+
+- *Uso*: quando você quer garantir uma **lista** como resultado.
+
+`sapply(X, FUN, ..., simplify = TRUE, USE.NAMES = TRUE)`
+
+- *Entrada*: vetor atômico, **lista** ou `expression`.
+
+- *Saída*: tenta **simplificar** para **vetor, matriz ou *array***; se não for possível, retorna **lista**.
+
+- *Uso*: quando você deseja um resultado simplificado e estável na prática 
+interativa.
+
+`vapply(X, FUN, FUN.VALUE, ..., USE.NAMES = TRUE)`
+
+- *Entrada*: vetor atômico, **lista** ou `expression`.
+
+- *Saída*: **vetor/matriz/*array*** com **tipo e comprimento pré-especificados** 
+por `FUN.VALUE` (sempre simplifica).
+
+- *Uso*: quando você precisa de **segurança de tipo** e previsibilidade 
+do formato de saída (recomendado para código robusto).
+
+
+**Exemplo com listas**
+
+```{r}
+# Lista com dados financeiros de diferentes empresas
+empresas <- list(
+  petrobras = c(25.4, 26.1, 24.8, 27.2),
+  vale      = c(65.3, 67.1, 63.9),
+  itau      = c(22.5, 23.1, 22.8, 23.6, 24.1)
+)
+
+# lapply: sempre retorna lista
+precos_medios <- lapply(empresas, mean)
+precos_medios
+```
+
+```{r}
+# sapply: tenta simplificar (vetor, matriz ou array)
+num_observacoes <- sapply(empresas, length)
+num_observacoes
+```
+
+```{r}
+# vapply: especifica tipo de saída (mais seguro)
+precos_maximos <- vapply(empresas, max, FUN.VALUE = numeric(1))
+precos_maximos
+```
+
+
+### Função para matrizes e arrays: `apply()`
+
+`apply(X, MARGIN, FUN, ..., simplify = TRUE)`
+
+- *Entrada*: array (inclui matriz). 
+
+- *`MARGIN`*: **margens** sobre as quais `FUN` é aplicada 
+(matriz: `1` = linhas, `2` = colunas, `c(1,2)` = células).
+
+- *Saída*: vetor/matriz/array (ou lista se `simplify=FALSE` ou comprimentos 
+variam).
+
+
+**Exemplo com matrizes**
+
+```{r}
+set.seed(123)
+# Matriz de retornos financeiros (4 ativos x 5 períodos)
+retornos_matriz <- matrix(
+  rnorm(20, mean = 0.02, sd = 0.15),
+  nrow = 4, ncol = 5,
+  dimnames = list(
+    ativo = c("PETR4", "VALE3", "ITUB4", "BBDC4"),
+    periodo = paste0("T", 1:5)
+  )
+)
+retornos_matriz
+```
+
+
+```{r}
+# Retorno médio por ativo (aplica por linhas)
+apply(retornos_matriz, 1, mean)
+```
+
+
+```{r}
+# Retorno médio por período (aplica por colunas)
+apply(retornos_matriz, 2, mean)
+```
+
+
+```{r}
+# Volatilidade (desvio-padrão) por ativo
+apply(retornos_matriz, 1, sd)
+```
+
+
+#### Resumo das funções
+
+| Função     | Aplicável              | Resultado                           | Use quando                                   |
+| ---------- | ---------------------- | ----------------------------------- | -------------------------------------------- |
+| `lapply()` | Vetor/Lista            | **Lista**                           | Precisa garantir lista                       |
+| `sapply()` | Vetor/Lista            | **Vetor/Matriz/Array** ou **Lista** | Quer simplificar resultado (se possível)     |
+| `vapply()` | Vetor/Lista            | **Tipo/forma especificados**        | Segurança de tipo e previsibilidade          |
+| `apply()`  | Matriz/Array           | **Vetor/Matriz/Array** ou **Lista** | Operações ao longo de margens específicas    |
+| `apply()`  | *Data frame* (coerção) | **Como acima (após coerção)**       | Apenas se você aceitar a coerção para matriz |
+
+
+
+### Alternativas recomendadas para *data frames* numéricas
+
+Para operações aritméticas simples, use funções vetorizadas especializadas:
+
+```{r}
+# Data frame apenas com colunas numéricas
+dados_financeiros <- data.frame(
+  receita = c(1000, 1200, 950),
+  custos  = c(800, 900, 750),
+  lucro   = c(200, 300, 200)
+)
+dados_financeiros
+```
+
+```{r}
+rowSums(dados_financeiros)   # soma por linha
+rowMeans(dados_financeiros)  # média por linha
+colSums(dados_financeiros)   # soma por coluna
+colMeans(dados_financeiros)  # média por coluna
+```
+
+
+
+
+
+# Funções Matemáticas
+
+## Vetores
+
+R possui diversas funções que facilitam cálculos matemáticos e 
+estatísticos diretamente aplicáveis a vetores/colunas de estruturas de dados.
 
 ```{r}
 numerico <- c(1, 3, 3.5, 4, 5, 6.5, 7, 8.5, 9, 10)
 ```
 
+
 ```{r}
-# calcular comprimento/tamanho do vetor
+# comprimento/tamanho do vetor
 length(numerico)
 ```
 
+
 ```{r}
-# calcula soma dos elementos
+# Soma dos elementos
 sum(numerico)
 ```
 
+
 ```{r}
-# calcula a soma acumulada
+# Soma acumulada
 cumsum(numerico)
 ```
 
 ```{r}
-# calcula o produto dos elementos
+# Produto dos elementos
 prod(numerico)
 ```
 
+
 ```{r}
-# calcula o produtoacumulado
+# Produto acumulado
 cumprod(numerico)
 ```
 
+
 ```{r}
-# calcula o logaritmo natural dos elementos
+# Logaritmo natural dos elementos
 log(numerico)
 ```
+
 
 ```{r}
 # logaritmo na base 10
 log10(numerico)
 ```
 
+
 ```{r}
-# calcula a função exponencial dos elementos
+# função exponencial dos elementos
 exp(numerico)
 ```
 
+
 ```{r}
-# calcula a média amostral
+# Média
 mean(numerico)
 ```
 
 ```{r}
-# calcula a mediana amostral
+# Mediana
 median(numerico)
 ```
 
+
 ```{r} 
-# calcula os quartis
+# quartis
 quantile(x, probs = c(0, 0.25, 0.5, 0.75, 1))
 ```
 
+
 ```{r}
-# calcula os decis
+# decis
 quantile(x, probs = seq(0, 1, 0.1))
 ```
 
+
 ```{r}
-# calcula os percentis
+# percentis
 quantile(x, probs = seq(0, 1, 0.01))
 ```
 
 
 ```{r}
-# calcula a variância amostral
+# Variância
 var(numerico)
 ```
 
 
 ```{r}
-# calcula o desvio-padrão amostral
+# Desvio padrão
 sd(numerico)
 ```
 
 
 ```{r}
-# calcula o valor mínimo
+# Valor mínimo
 min(numerico)
 ```
 
+
 ```{r}
-# calcula o valor máximo
+# Valor máximo
 max(numerico)
 ```
 
 
 
+## Álgebra Matricial
 
-# Exercícios
-
-Utilizando seus conhecimentos sobre o sistema Quarto e a linguagem R, 
-responda aos seguintes exercícios. 
-
-Para resolver os exercícios, crie células de código R logo abaixo de 
-cada enunciado (Lembre-se que o atalho do teclado `Ctrl + Alt + I` insere uma 
-célula de código)
+A álgebra matricial é fundamental em econometria e a linguagem R oferece 
+operações matriciais eficientes, vejamos alguns exemplos:
 
 
-1. Crie um vetor com os números de 1 a 10 e calcule a soma dos elementos. 
+```{r}
+# Criando uma matriz 2x3 preenchendo por colunas (padrão do R)
+A <- matrix(c(1, 2, 3, 4, 5, 6), nrow = 2, ncol = 3)
+A
+```
+
+```{r}
+# Criando matriz identidade 3x3 (diagonal = 1, resto = 0)
+I3 <- diag(3)
+I3
+```
 
 
-2. Crie uma data frame com informações de três pessoas (nome, idade, ativo) e 
-exiba a média das idades. 
+```{r}
+# Verificando as dimensões das matrizes
+dim(A)    # Dimensões (linhas, colunas)
+nrow(A)   # Número de linhas
+ncol(A)   # Número de colunas
+```
 
 
-3. Crie uma `tibble` com os mesmos dados do exercício anterior e exiba a 
-estrutura da `tibble`.
+### Operações Básicas
+
+```{r}
+B <- matrix(c(2, 4, 1, 3, 5, 2), nrow = 2, ncol = 3)
+B
+```
 
 
-4. Utilize as funções da linguagem R para calcular a média, mediana, 
-variância e desvio-padrão do vetor criado no exercício 1. 
+```{r}
+C <- matrix(c(1, 2, 3, 4), nrow = 2, ncol = 2)
+C
+```
 
 
-5. Crie um vetor com os custos de cinco projetos e calcule o custo total 
-e a média dos custos. 
+```{r}
+# Soma e subtração (matrizes devem ter mesma dimensão)
+A + B  # Soma elemento por elemento
+```
+
+```{r}
+A - B  # Subtração elemento por elemento
+```
+
+```{r}
+# Multiplicação por escalar (multiplica todos os elementos)
+2 * A
+```
+
+```{r}
+# Multiplicação elemento por elemento - produto Hadamard
+A * B  # Cada elemento A[i,j] * B[i,j]
+```
+
+```{r}
+# Multiplicação matricial (produto interno) - dimensões devem ser compatíveis
+D <- matrix(c(1, 2, 3, 4, 5, 6), nrow = 3, ncol = 2)  # 3x2 para multiplicar com A (2x3)
+resultado <- A %*% D  # Resultado será 2x2
+resultado
+```
+
+
+```{r}
+# Transposta: converte linhas em colunas
+A_transposta <- t(A)
+```
+
+```{r}
+dim(A)           # Original: 2x3
+```
+
+```{r}
+dim(A_transposta) # Transposta: 3x2
+```
+
+```{r}
+# Determinante (apenas para matrizes quadradas)
+det_C <- det(C)
+det_C
+```
+
+```{r}
+# Inversa de uma matriz (apenas se determinante ≠ 0)
+C_inv <- solve(C)
+C_inv
+```
+
+```{r}
+# Verificação: C * C^(-1) deve resultar na matriz identidade
+verificacao <- C %*% C_inv
+round(verificacao, 10)  # Arredondando para evitar erros de precisão
+``` 
+
+```{r}
+# Traço de uma matriz (soma dos elementos da diagonal principal)
+sum(diag(C))
+```
+
+
+### Decomposições Matriciais
+
+```{r}
+# Autovalores e autovetores (importantes para análise de estabilidade)
+eigen_result <- eigen(C)
+```
+
+```{r}
+eigen_result$values    # Autovalores
+eigen_result$vectors   # Autovetores (cada coluna é um autovetor)
+```
+
+```{r}
+# Decomposição QR 
+matriz_exemplo <- matrix(c(1, 2, 3, 4, 5, 6), nrow = 3, ncol = 2)
+qr_decomp <- qr(matriz_exemplo)
+Q <- qr.Q(qr_decomp)  # Matriz ortogonal (Q'Q = I)
+R <- qr.R(qr_decomp)  # Matriz triangular superior
+Q
+R
+```
+
+
+
+
+
+# Estruturas de Controle
+
+As estruturas de controle permitem determinar quais partes do código serão 
+executadas e quando. Em R, há dois principais tipos: estruturas condicionais 
+e estruturas repetitivas.
+
+
+## Execução Condicional
+
+### `if` e `else`
+
+A estrutura `if-else` executa um bloco de código quando uma condição é 
+verdadeira e outro bloco quando é falsa. Esta é a forma básica de implementar 
+lógica condicional no R.
+
+
+**Sintaxe básica:**
+
+```r
+if (condição) {
+  # código executado se condição for TRUE
+} else {
+  # código executado se condição for FALSE
+}
+```
+
+**Exemplo simples:**
+
+```{r}
+# Exemplo simples de estrutura condicional
+lucro <- 500  # Lucro em reais
+
+# Se o lucro é positivo, o investimento é considerado lucrativo
+if (lucro > 0) {
+  status <- "Lucrativo"
+} else {
+  status <- "Não lucrativo"
+}
+
+# Resultado da avaliação
+status
+```
+
+
+
+**Exemplo com múltiplas condições:**
+
+```{r}
+# Define um retorno financeiro para análise
+retorno_ativo <- 0.08  # 8% de retorno
+
+# Avalia o nível de risco com base no retorno
+if (retorno_ativo > 0.15) {
+  # Executado apenas se retorno > 15%
+  perfil_risco <- "Alto risco"
+} else if (retorno_ativo > 0.05) {
+  # Executado se retorno <= 15% e retorno > 5%
+  perfil_risco <- "Risco moderado"
+} else {
+  # Executado se nenhuma das condições anteriores for verdadeira
+  # ou seja, se retorno <= 5%
+  perfil_risco <- "Baixo risco"
+}
+
+# Resultado da classificação
+perfil_risco
+```
+
+
+Em estruturas com múltiplos `if else`, R avalia cada condição em sequência até encontrar a primeira que seja verdadeira:
+
+1. Primeiro avalia `retorno_ativo > 0.15`
+   - Se verdadeira → "Alto risco"
+   - Se falsa → continua para próxima condição
+
+2. Em seguida avalia `retorno_ativo > 0.05`
+   - Esta condição só é testada se a primeira for falsa
+   - Implicitamente representa: `retorno_ativo $\leq$ 0.15 E retorno_ativo > 0.05`
+   - Se verdadeira → "Risco moderado"
+   - Se falsa → continua para o bloco `else`
+
+3. Se todas as condições anteriores forem falsas:
+   - Executa o bloco `else` → "Baixo risco"
+   - Representa implicitamente: `retorno_ativo $\leq$ 0.05`
+
+
+
+### Função `ifelse()` - Condicionais Vetorizados
+
+Para operações condicionais em vetores inteiros, use `ifelse()`. Esta 
+função aplica condições elemento por elemento, ideal para classificar 
+múltiplos valores.
+
+```{r}
+# Vetor com múltiplos retornos de ativos
+retornos <- c(0.12, 0.03, 0.07, -0.02, 0.15)
+
+# Classificação binária: acima ou abaixo da meta de 5%
+classificacao <- ifelse(retornos > 0.05, "Acima da meta", "Abaixo da meta")
+
+# Exibe as classificações
+data.frame(Retorno = retornos, Classificacao = classificacao)
+```
+
+Para classificações com múltiplos níveis, podemos aninhar chamadas `ifelse()`:
+
+```{r}
+# Classificação em três níveis de retorno
+classificacao_detalhada <- ifelse(retornos > 0.10, "Alto retorno",
+                                 ifelse(retornos > 0.0, "Retorno positivo", 
+                                        "Retorno negativo"))
+
+# Exibe os resultados
+data.frame(
+  Retorno = retornos,
+  Classificacao = classificacao_detalhada
+)
+```
+
+
+## Execução Repetitiva
+
+Estruturas repetitivas (loops) executam o mesmo bloco de código múltiplas 
+vezes. Em R, existem três tipos principais: `for`, `while` e `repeat`. 
+Estas estruturas são importantes para automatizar tarefas repetitivas, 
+como simulações e cálculos sequenciais.
+
+
+### Loop `for`
+
+O loop `for` executa um bloco de código um número predeterminado de vezes, 
+iterando sobre uma sequência de valores.
+
+
+**Sintaxe básica:**
+
+```r
+for (variavel in sequencia) {
+  # código a ser repetido
+}
+```
+
+
+Exemplo simples:
+
+```{r}
+# Calculando o quadrado de cada número
+numeros <- 1:5
+quadrados <- numeric(length(numeros))  # Pré-aloca o vetor de resultados
+
+for (i in 1:length(numeros)) {
+  quadrados[i] <- numeros[i]^2
+}
+
+# Resultado final
+quadrados
+```
+
+Características importantes do for em R:
+
+1. Iteração direta sobre elementos: Em R, podemos iterar diretamente sobre os elementos, não apenas sobre índices:
+
+```{r}
+# Iterando diretamente sobre elementos (mais legível)
+nomes <- c("Ana", "Bruno", "Carla")
+
+for (nome in nomes) {
+  print(paste("Olá,", nome))
+}
+```
+
+
+2. Indexação começando em 1: Diferentemente de linguagens como Python ou 
+JavaScript, em R os índices começam em 1:
+
+```{r}
+# Acessando elementos por índice
+for (i in 1:3) {
+  print(paste("O elemento", i, "é", nomes[i]))
+}
+```
+
+
+3. Segurança com vetores vazios: Ao iterar por índices, use seq_along() para 
+evitar problemas com vetores vazios:
+
+```{r}
+# Forma segura de iterar sobre índices
+dados <- c(10, 20, 30)
+for (i in seq_along(dados)) {  # seq_along(dados) cria a sequência 1, 2, 3
+  print(paste("Processando dado", i, ":", dados[i]))
+}
+```
+
+
+Exemplo econométrico - Simulação Monte Carlo simples:
+
+```{r}
+# Simulando propriedades do estimador de mínimos quadrados
+set.seed(123)  # Garante reprodutibilidade
+n_simulacoes <- 50
+betas <- numeric(n_simulacoes)  # Pré-aloca vetor para resultados
+
+# Loop de simulação
+for (i in 1:n_simulacoes) {
+  # Gera dados para regressão y = 2 + 3x + erro
+  x <- rnorm(30)  # 30 observações
+  y <- 2 + 3 * x + rnorm(30)  # Beta verdadeiro = 3
+  
+  # Estima o modelo
+  modelo <- lm(y ~ x)
+  
+  # Armazena o coeficiente estimado beta1
+  betas[i] <- coef(modelo)[2]
+}
+
+# Resultados
+c(Beta_verdadeiro = 3,
+  Media_estimada = mean(betas),
+  Desvio_padrao = sd(betas))
+```
+
+
+### Loop while
+
+O loop while executa repetidamente um bloco de código enquanto uma condição 
+específica for verdadeira. É útil quando não sabemos antecipadamente quantas 
+iterações serão necessárias.
+
+Sintaxe básica:
+
+```{r}
+#| eval: false
+
+while (condicao) {
+  # código a ser repetido
+}
+```
+
+
+Exemplo simples:
+
+```{r}
+# Encontrando o primeiro número na sequência de Fibonacci maior que 100
+a <- 0
+b <- 1
+contador <- 1
+
+while (b <= 100) {
+  # Armazena b antes de atualizá-lo
+  temp <- b
+  
+  # Gera o próximo número de Fibonacci
+  b <- a + b
+  a <- temp
+  
+  # Incrementa contador
+  contador <- contador + 1
+}
+
+# Resultados
+c(Numero_Fibonacci = b, Posicao = contador)
+```
+
+Quando usar while:
+
+- Quando o número de iterações depende de uma condição que muda durante o 
+processo
+
+- Em algoritmos iterativos que convergem para uma solução
+
+- Quando a condição de parada não é conhecida antecipadamente
+
+Atenção: Sempre inclua uma condição que eventualmente se tornará falsa 
+para evitar loops infinitos!
+
+Exemplo financeiro - Calculando tempo para atingir um valor alvo:
+
+```{r}
+# Calculando quanto tempo leva para um investimento dobrar
+investimento_inicial <- 1000
+taxa_anual <- 0.07  # 7% ao ano
+valor_alvo <- 2 * investimento_inicial
+valor_atual <- investimento_inicial
+anos <- 0
+
+while (valor_atual < valor_alvo) {
+  # Aplica juros compostos
+  valor_atual <- valor_atual * (1 + taxa_anual)
+  anos <- anos + 1
+}
+
+# Resultado
+c(Anos_para_dobrar = anos,
+  Valor_final = round(valor_atual, 2))
+```
+
+
+### Loop repeat
+
+O loop repeat executa um bloco de código indefinidamente até encontrar um 
+comando break. É a estrutura de repetição mais flexível, mas também a que 
+exige mais cuidado.
+
+Sintaxe básica:
+
+```{r}
+#| eval: false
+
+repeat {
+  # código a ser repetido
+  if (condicao_de_parada) {
+    break  # sai do loop
+  }
+}
+```
+
+
+Comandos de controle de fluxo:
+
+- `break`: interrompe completamente o loop
+- `next`: pula para a próxima iteração
+
+Exemplo simples:
+
+```{r}
+# Gerando números aleatórios até obter um valor maior que 0.9
+set.seed(42)
+contador <- 0
+
+repeat {
+  valor <- runif(1)  # Gera número aleatório entre 0 e 1
+  contador <- contador + 1
+  
+  if (valor > 0.9) {
+    break  # Sai do loop se o valor for maior que 0.9
+  }
+  
+  if (contador > 100) {
+    print("Excedeu número máximo de tentativas")
+    break  # Mecanismo de segurança
+  }
+}
+
+c(Numero_sorteado = valor, Tentativas = contador)
+```
+
+Quando usar repeat:
+
+- Em algoritmos que precisam executar pelo menos uma vez antes de verificar 
+a condição
+
+- Quando a lógica de saída é complexa ou envolve múltiplas condições
+
+- Em simulações que continuam até atingir um critério específico
+
+
+### Vetorização vs. Loops Explícitos
+
+R é uma linguagem vetorizada, o que significa que muitas operações podem 
+ser aplicadas diretamente a vetores inteiros sem necessidade de loops 
+explícitos.
+
+Vantagens da Vetorização:
+
+```{r}
+# Exemplo: Cálculo de retornos para múltiplos ativos
+precos_iniciais <- c(100, 50, 75, 120, 200)
+precos_finais <- c(110, 45, 80, 125, 190)
+
+# Abordagem vetorizada (eficiente e concisa)
+retornos <- (precos_finais - precos_iniciais) / precos_iniciais
+
+# Resultados
+data.frame(
+  Ativo = paste("Ativo", 1:5),
+  Preco_Inicial = precos_iniciais,
+  Preco_Final = precos_finais,
+  Retorno = paste0(round(retornos*100, 2), "%")
+)
+```
+
+
+Quando usar vetorização:
+
+- Para operações matemáticas aplicadas a todos os elementos
+
+- Quando todos os elementos são processados da mesma forma
+
+- Para melhor performance e código mais conciso
+
+
+Quando Usar Loops Explícitos
+
+Loops são necessários quando:
+
+1. Cada etapa depende de resultados anteriores
+
+```{r}
+# Calculando o preço de uma ação com volatilidade variável
+set.seed(123)
+dias <- 10
+preco_inicial <- 100
+precos <- numeric(dias)
+precos[1] <- preco_inicial
+
+# Este loop não pode ser vetorizado porque cada preço depende do anterior
+for (dia in 2:dias) {
+  volatilidade <- 0.01 + 0.005 * (dia-1)  # Volatilidade aumenta com o tempo
+  variacao <- rnorm(1, mean = 0, sd = volatilidade)
+  precos[dia] <- precos[dia-1] * (1 + variacao)
+}
+
+# Resultado da simulação
+data.frame(
+  Dia = 1:dias,
+  Preco = round(precos, 2)
+)
+```
+
+2. O processo contém decisões condicionais complexas
+
+3. Para algoritmos iterativos que exigem convergência
+
+
+### Boas Práticas para Loops em R
+
+1. Pré-alocar objetos: Sempre crie vetores/matrizes com o tamanho final 
+antes do loop
+
+```{r}
+#| eval: false
+
+# Bom: Pré-alocação
+resultados <- numeric(1000)
+for(i in 1:1000) {
+  resultados[i] <- calculos()
+}
+
+# Ruim: Crescimento dinâmico (muito lento)
+resultados <- c()
+for(i in 1:1000) {
+  resultados <- c(resultados, calculos())  # Evite isso!
+}
+```
+
+2. Considere alternativas vetorizadas quando possível:
+
+  - Funções vetorizadas: ifelse(), pmax(), pmin(), etc.
+
+  - Funções da família apply: lapply(), sapply(), vapply(), apply()
+
+3. Monitore o progresso em loops longos:
+
+```{r}
+#| eval: false
+
+for(i in 1:10000) {
+  # seu código aqui
+  
+  # Mostra progresso a cada 1000 iterações
+  if(i %% 1000 == 0) {
+    print(paste("Concluído:", i, "de 10000"))
+  }
+}
+```
+
+
+4. Mecanismos de segurança para evitar loops infinitos:
+
+```{r}
+#| eval: false
+
+iteracao <- 0
+max_iter <- 1000
+
+while(condicao) {
+  # seu código aqui
+  iteracao <- iteracao + 1
+  
+  if(iteracao > max_iter) {
+    warning("Atingiu número máximo de iterações!")
+    break
+  }
+}
+```
+
+
+
+
+
+# Como Obter Ajuda sobre R
+
+Uma das habilidades mais importantes para aprender R é saber como obter 
+ajuda quando você encontra dificuldades ou quer aprender sobre novas 
+funções e pacotes.
+
+
+## Sistema de Ajuda Integrado
+
+### Ajuda para Funções Específicas (`?`)
+
+Use `?` seguido do nome da função para acessar sua documentação:
+
+```{r}
+#| eval: false
+
+# Documentação da função mean
+?mean
+
+# Documentação da função lm (regressão linear)
+?lm
+
+# Documentação da função read_csv do pacote readr
+?readr::read_csv
+```
+
+
+A documentação inclui:
+
+- **Description**: O que a função faz
+- **Usage**: Como usar a função
+- **Arguments**: Parâmetros que a função aceita
+- **Value**: O que a função retorna
+- **Examples**: Exemplos práticos de uso
+
+
+### Busca por Tópicos (`??`)
+
+Use `??` para buscar funções relacionadas a um tópico:
+
+```{r}
+#| eval: false
+
+# Busca todas as funções relacionadas a regressão
+??regression
+
+# Busca funções para trabalhar com datas
+??date
+
+# Busca funções de estatística descritiva
+??"descriptive statistics"
+```
+
+
+
+### Vinhetas (Vignettes)
+
+Vinhetas são tutoriais detalhados que mostram como usar pacotes:
+
+```{r}
+#| eval: false
+
+# Lista todas as vinhetas disponíveis
+vignette()
+
+# Vinhetas de um pacote específico
+vignette(package = "dplyr")
+
+# Abre uma vinheta específica
+vignette("dplyr", package = "dplyr")
+```
+
+
+
+### Exemplos de Funções
+
+Use `example()` para executar os exemplos da documentação:
+
+```{r}
+#| eval: false
+
+# Executa os exemplos da função mean
+example(mean)
+
+# Executa os exemplos da função plot
+example(plot)
+```
+
+
+### Dicas 
+
+1. **Use o RStudio**: No RStudio, você pode usar `F1` com o cursor sobre 
+uma função
+
+2. **Help Search**: Use a aba "Help" no RStudio para navegar pela documentação
+
+3. **Auto-completar**: Use `Tab` para ver sugestões de funções e argumentos
+
+
+
+
+
+# Funções em R
+
+Funções são blocos de código reutilizáveis que executam tarefas específicas. 
+
+
+## Sintaxe básica
+
+Uma função em R é definida usando a seguinte estrutura:
+
+```r
+nome_da_funcao <- function(parametro1, parametro2, ...) {
+  # corpo da função
+  
+  # valor de retorno (opcional)
+  return(resultado)
+}
+```
+
+**Componentes principais:**
+
+- *Nome*: identificador da função
+- *Parâmetros*: valores de entrada
+- *Corpo*: código que realiza as operações
+- *Retorno*: valor que a função retorna
+
+
+**Exemplo 1:** Função matemática simples:
+
+```{r}
+# Função para calcular retorno percentual entre dois valores
+retorno_percentual <- function(valor_inicial, valor_final) {
+  # Cálculo do retorno percentual
+  retorno <- (valor_final - valor_inicial) / valor_inicial * 100
+  # Retorna o resultado
+  return(retorno)
+}
+
+# Aplicação da função com preços de ações
+preco_inicial <- 45.80
+preco_final <- 52.30
+retorno_percentual(preco_inicial, preco_final)
+```
+
+
+**Exemplo 2:** Função com valores padrão
+
+Parâmetros podem ter valores padrão, tornando-os opcionais:
+
+```{r}
+# Função para calcular montante com juros compostos
+calcular_montante <- function(principal, taxa, periodo, frequencia = 1) {
+  # principal: valor inicial investido
+  # taxa: taxa de juros (decimal, ex: 0.08 para 8%)
+  # periodo: tempo total do investimento
+  # frequencia: número de capitalizações por período (padrão: anual)
+  
+  # Fórmula dos juros compostos
+  montante <- principal * (1 + taxa/frequencia)^(periodo * frequencia)
+  return(montante)
+}
+
+# Aplicação com capitalização anual (padrão)
+calcular_montante(1000, 0.08, 5)  # 1000 reais, 8% a.a., 5 anos
+
+# Aplicação com capitalização trimestral
+calcular_montante(1000, 0.08, 5, 4)  # 4 capitalizações por ano
+```
+
+
+
+**Exemplo 3:** Função estatística simples
+
+```{r}
+# Função para calcular o coeficiente de variação (CV)
+# CV = (desvio padrão / média) * 100
+coef_variacao <- function(dados) {
+  # Verifica se média é zero (CV indefinido neste caso)
+  if (mean(dados) == 0) {
+    warning("Média zero! Coeficiente de variação indefinido.")
+    return(NA)  # Retorna NA se média for zero
+  }
+  
+  # Cálculo do coeficiente de variação em percentual
+  cv <- (sd(dados) / abs(mean(dados))) * 100
+  return(cv)
+}
+
+# Aplicação em dois conjuntos de retornos
+retornos_ativo_a <- c(0.05, 0.08, -0.03, 0.06, 0.02)  # menos volátil
+retornos_ativo_b <- c(0.15, -0.12, 0.20, -0.08, 0.10)  # mais volátil
+
+# Calculando CV para comparar volatilidade relativa
+cv_a <- coef_variacao(retornos_ativo_a)
+cv_b <- coef_variacao(retornos_ativo_b)
+
+# Resultado em tabela para comparação
+data.frame(
+  Ativo = c("A", "B"),
+  Media = c(mean(retornos_ativo_a), mean(retornos_ativo_b)),
+  DesvPad = c(sd(retornos_ativo_a), sd(retornos_ativo_b)),
+  CV = c(cv_a, cv_b)
+)
+```
+
+
+**Exemplo 4:** Retornando múltiplos valores
+
+Para retornar múltiplos resultados, use uma lista ou um vetor nomeado:
+
+```{r}
+# Função para calcular estatísticas descritivas básicas
+estatisticas_basicas <- function(dados) {
+  # Verifica se há dados para analisar
+  if (length(dados) == 0) {
+    return(NULL)  # Retorna NULL se o vetor estiver vazio
+  }
+  
+  # Cria lista com múltiplas estatísticas
+  resultado <- list(
+    media = mean(dados),
+    mediana = median(dados),
+    desvio_padrao = sd(dados),
+    minimo = min(dados),
+    maximo = max(dados),
+    n_obs = length(dados)
+  )
+  
+  return(resultado)
+}
+
+# Exemplo: análise de preços de ações
+precos_acao <- c(45.2, 46.8, 47.1, 45.9, 48.5, 49.2)
+stats <- estatisticas_basicas(precos_acao)
+
+# Acessando elementos específicos do resultado
+stats$media           # Média dos preços
+stats$desvio_padrao   # Desvio padrão
+```
+
+
+### Escopo de variáveis
+
+Variáveis criadas dentro de uma função existem apenas no escopo da função:
+
+```{r}
+# Demonstração de escopo
+x_global <- 10  # Variável no ambiente global
+
+demonstrar_escopo <- function(x) {
+  y <- x * 2        # y existe apenas dentro da função
+  z <- x + y + x_global  # Podemos acessar variáveis globais
+  return(z)
+}
+
+# Chama a função
+resultado <- demonstrar_escopo(5)
+resultado  # Retorna 25 (5 + 10 + 10)
+
+# Tentar acessar y causaria erro, pois só existe dentro da função
+# y  # Erro: objeto 'y' não encontrado
+```
+
+
+## Boas práticas na criação de funções
+
+1. **Nomes descritivos**: Use verbos que indiquem a ação da função
+2. **Documentação**: Inclua comentários explicando parâmetros e retorno
+3. **Validação de entradas**: Verifique se os parâmetros são válidos
+4. **Uma função, uma tarefa**: Cada função deve ter um propósito claro
+5. **Modularidade**: Decomponha problemas complexos em funções menores
+
+
+
+
+
+# Importação de Dados com `here` e `readr`
+
+Uma das primeiras tarefas em qualquer análise é importar dados. Nesta seção, aprenderemos a usar o pacote `here` para trabalhar com caminhos relativos 
+para arquivos e o pacote `readr` (parte do tidyverse) para importar arquivos
+csv.
+
+## O Pacote `here`
+
+O pacote `here` resolve um problema comum: como referenciar arquivos de 
+forma que funcione em diferentes computadores e sistemas operacionais.
+
+```{r}
+# Verificando o diretório raiz do projeto
+here::here()
+```
+
+Ele permite usar **caminhos relativos** de arquivos em relação à pasta 
+raíz do projeto, evitando problemas de caminhos absolutos que podem 
+variar entre usuários e sistemas.
+
+
+
+## Importando Dados com `readr`
+
+O pacote `readr` faz parte do tidyverse e oferece funções rápidas e 
+consistentes para importar dados no formato csv.
+
+```{r}
+# define o caminho relativo
+caminho_relativo <- here::here("dados/brutos/dados_simulados.csv")
+
+# Visualizando as primeiras linhas
+dados_empresas  <- readr::read_csv(caminho_relativo)
+```
+
+
+## Explorando a Estrutura dos Dados
+
+```{r}
+# Estrutura do dataset
+dplyr::glimpse(dados_empresas)
+```
+
+
+```{r}
+# Dimensões (linhas x colunas)
+dim(dados_empresas)
+```
+
+
+```{r}
+# Nomes das colunas
+names(dados_empresas)
+```
+
+
+```{r}
+# Resumo estatístico
+summary(dados_empresas)
+```
+
+
+
+
+
+# Manipulação de Dados com `dplyr`
+
+O `dplyr` é o pacote principal do tidyverse para manipulação de dados. 
+Ele fornece uma gramática consistente e intuitiva para as operações mais 
+comuns em análise de dados.
+
+
+## Os Principais Verbos do `dplyr`
+
+
+### `select()` - Selecionando Colunas
+
+Use `select()` para escolher quais colunas manter no seu dataset:
+
+```{r}
+# Selecionando apenas algumas colunas de interesse
+dados_financeiros <- dados_empresas |>
+  select(empresa, setor, receita_liquida, lucro_liquido, roe_percentual)
+
+dados_financeiros
+```
+
+
+```{r}
+# Diferentes formas de selecionar colunas
+# starts_with() seleciona colunas que começam com um texto específico
+dados_empresas |>
+  select(empresa, setor, starts_with("receita")) |>
+  head()
+```
+
+
+```{r}
+# Removendo colunas com o sinal de menos (-)
+dados_empresas |>
+  select(-valor_mercado, -preco_acao) |>
+  head()
+```
+
+
+### `filter()` e `slice()` - Selecionando Linhas
+
+Use `filter()` para manter apenas as linhas que atendem a certas condições:
+
+```{r}
+# Filtrando empresas do setor de tecnologia
+empresas_tech <- dados_empresas |>
+  filter(setor == "Tecnologia")
+
+empresas_tech
+```
+
+
+```{r}
+# Empresas com ROE maior que 10%
+dados_empresas |>
+  filter(roe_percentual > 10)
+```
+
+
+```{r}
+# Múltiplas condições usando & (E) ou %in% (pertence ao conjunto)
+dados_empresas |>
+  filter(setor %in% c("Tecnologia", "Bancos"), 
+         roe_percentual > 7)
+```
+
+
+Use `slice()` para selecionar linhas por posição:
+
+```{r}
+# Primeiras 3 linhas
+dados_empresas |>
+  slice(1:3)
+
+# As 2 maiores empresas por receita (slice_max substitui o filter + arrange)
+dados_empresas |>
+  slice_max(receita_liquida, n = 2) |>
+  select(empresa, receita_liquida)
+```
+
+
+### `mutate()` - Criando e Modificando Colunas
+
+Use `mutate()` para criar novas variáveis ou modificar variáveis existentes:
+
+```{r}
+# Criando novas variáveis financeiras
+dados_empresas <- dados_empresas |>
+  mutate(
+    # Calculando margem líquida em percentual
+    margem_liquida = (lucro_liquido / receita_liquida) * 100,
+    # Convertendo receita para bilhões (mais fácil de ler)
+    receita_bilhoes = receita_liquida / 1e9,
+    # Classificando empresas por tamanho usando case_when()
+    tamanho_empresa = case_when(
+      receita_liquida > 4e9 ~ "Grande",
+      receita_liquida > 2e9 ~ "Média",
+      TRUE ~ "Pequena"  # TRUE captura todos os casos restantes
+    )
+  )
+
+# Visualizando as novas colunas criadas
+dados_empresas |>
+  select(empresa, receita_bilhoes, margem_liquida, tamanho_empresa)
+```
+
+
+### `arrange()` - Ordenando Dados
+
+Use `arrange()` para ordenar o dataset:
+
+```{r}
+# Ordenando por ROE (ordem crescente - padrão)
+dados_empresas |>
+  select(empresa, setor, roe_percentual) |>
+  arrange(roe_percentual) 
+```
+
+
+```{r}
+# Ordenando por ROE (ordem decrescente) usando desc()
+dados_empresas |>
+  select(empresa, setor, roe_percentual) |>
+  arrange(desc(roe_percentual)) |>
+  head()
+```
+
+
+### `group_by()` e `summarise()` - Agrupamento e Sumários/Resumos
+
+Use essas funções em conjunto para calcular estatísticas por grupos:
+
+```{r}
+# Calculando estatísticas resumo por setor
+resumo_setores <- dados_empresas |>
+  group_by(setor) |>
+  summarise(
+    n_empresas = n(),                                    # Conta o número de empresas
+    receita_media = mean(receita_liquida, na.rm = TRUE), # Receita média (ignora NAs)
+    roe_medio = mean(roe_percentual, na.rm = TRUE),      # ROE médio
+    roe_mediano = median(roe_percentual, na.rm = TRUE)   # ROE mediano
+  )
+
+resumo_setores
+```
+
+
+# Encontrando as 2 maiores empresas por setor em termos de receita
+
+```{r}
+# pipeline completo
+dados_empresas |>
+  group_by(setor) |>
+  slice_max(receita_liquida, n = 2) |>  # slice_max seleciona os n maiores valores
+  select(setor, empresa, receita_liquida) |>
+  arrange(setor, desc(receita_liquida))
+```
+
+
+## Operador Pipe: `|>` vs `%>%`
+
+O operador pipe permite encadear operações de forma legível e intuitiva:
+
+- **`|>` (pipe nativo do R)**: Disponível desde o R 4.1.0, é mais rápido e 
+não requer pacotes externos
+
+- **`%>%` (pipe do magrittr/tidyverse)**: Versão clássica, ainda 
+amplamente usada
+
+
+**Atalhos no RStudio (Windows):**
+
+- `|>`: Ctrl + Shift + M (padrão nas versões recentes)
+
+- `%>%`: Ctrl + Shift + M (se configurado para magrittr pipe)
+
+```{r}
+# Pipeline usando o pipe nativo |>
+analise_completa <- dados_empresas |>
+  # Filtra empresas rentáveis
+  filter(roe_percentual > 5) |>  
+  # Cria indicador de eficiência
+  mutate(eficiencia = lucro_liquido / ativo_total) |>  
+  # Ordena por eficiência (maior primeiro)
+  arrange(desc(eficiencia)) |>          
+  # Seleciona colunas relevantes
+  select(empresa, setor, roe_percentual, eficiencia) |>  
+   # Mostra apenas os 10 primeiros
+  head(10)                                        
+
+# exibe o resultado
+analise_completa
+```
+
+**Dica:** O operador pipe `|>` é a escolha recomendada para novos projetos, 
+pois é nativo e não depende de pacotes externos.
+
+
+
+
+
+# Visualização de Dados com `ggplot2`
+
+O `ggplot2` implementa a "Gramática dos Gráficos", uma abordagem sistemática 
+para criar visualizações. Cada gráfico é construído em camadas.
+
+## Conceitos Fundamentais
+
+- **Dados**: O dataset que queremos visualizar
+- **Aesthetics (aes)**: Como os dados são mapeados para propriedades visuais
+- **Geometries (geom)**: O tipo de gráfico (pontos, linhas, barras, etc.)
+
+
+## Gráfico da Densidade de ROE
+
+```{r}
+# Gráfico de densidade do ROE
+ggplot(dados_empresas, aes(x = roe_percentual)) +
+  geom_density() +
+  labs(
+    title = "Distribuição do ROE das Empresas Brasileiras",
+    x = "ROE",
+    y = "Densidade"
+  ) +
+  theme_minimal()
+```
+
+
+Podemos melhorar o gráfico com:
+
+```{r}
+# Gráfico de densidade do ROE
+ggplot(dados_empresas, aes(x = roe_percentual)) +
+  geom_density(fill = "lightblue") 
+  labs(
+    title = "Distribuição do ROE das Empresas Brasileiras",
+    x = "ROE",
+    y = "Densidade"
+  ) +
+  theme_minimal()
+```
+
+
+## Gráfico de Dispersão Básico
+
+```{r}
+# Gráfico de dispersão básico
+ggplot(data = dados_empresas, aes(x = ativo_total, y = valor_mercado)) +
+  geom_point() + 
+  theme_minimal()
+```
+
+
+Ajusta e insere um modelo (reta) de regressão linear simples 
+
+```{r}
+# Gráfico de dispersão com reta de regressão
+ggplot(data = dados_empresas, aes(x = ativo_total, y = valor_mercado)) +
+  geom_point() + 
+  geom_smooth(method = "lm", color = "blue", se = FALSE) +
+  labs(
+    title = "Relação entre Ativo Total e Valor de Mercado",
+    x = "Ativo Total (Bilhões de R$)",
+    y = "Valor de Mercado (Bilhões de R$)"
+  ) +
+  theme_minimal()
+```
+
+
+Ajusta e insere uma curval polinomial local (*loess*): 
+
+```{r}
+# Gráfico de dispersão com curva de suavização
+ggplot(data = dados_empresas, aes(x = ativo_total, y = valor_mercado)) +
+  geom_point() + 
+  geom_smooth(method = "loess", color = "red", se = FALSE) +
+  labs(
+    title = "Relação entre Ativo Total e Valor de Mercado",
+    x = "Ativo Total (Bilhões de R$)",
+    y = "Valor de Mercado (Bilhões de R$)"
+  ) +
+  theme_minimal()
+```
+
+
+
+## Melhorando o Gráfico
+
+```{r}
+# Adicionando cor por setor e melhorando labels
+ggplot(dados_empresas, aes(x = ativo_total, y = valor_mercado)) +
+  geom_point(aes(color = setor), size = 3, alpha = 0.7) +
+  labs(
+    title = "Relação entre Valor de Mercado e Ativo Total por Setor",
+    subtitle = "Análise de 15 empresas brasileiras",
+    x = "Ativo Total (Bilhões de R$)",
+    y = "ROE (%)",
+    color = "Setor"
+  ) +
+  theme_minimal()
+```
+
+
+
+
+
+# Conclusão 
+
+Neste relatório introdutório, cobrimos os fundamentos essenciais para começar a trabalhar com R e Quarto:
+
+## Tópicos
+
+1. **Quarto**: Como criar relatórios reprodutíveis integrando código e texto
+
+2. **Fundamentos da Linguagem R**: Tipos Atômicos e estruturas de dados, 
+operações básicas
+
+3. **Como obter ajuda**: Documentação, vinhetas e recursos online
+
+4. **Importação de dados**: Usando `here` e `readr` para um fluxo reprodutível
+
+5. **Manipulação de dados**: Os verbos essenciais do `dplyr`
+
+6. **Visualização**: Primeiros passos com `ggplot2`
+
+
+## Recursos para Estudo
+
+- **R for Data Science**: [https://r4ds.had.co.nz/](https://r4ds.had.co.nz/)
+
+- **Quarto Documentation**: [https://quarto.org/docs/](https://quarto.org/docs/)
+
+- **RStudio Cheatsheets**: [https://www.rstudio.com/resources/cheatsheets/](https://www.rstudio.com/resources/cheatsheets/)
+
+- **Tidyverse**: [https://www.tidyverse.org/](https://www.tidyverse.org/)
+
+
+
+
+
 
 
 
