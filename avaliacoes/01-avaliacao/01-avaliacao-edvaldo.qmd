@@ -1,0 +1,81 @@
+---
+lang: "pt-BR"
+title: "Avaliação 1"
+subtitle: "Econometria Aplicada à Finanças <br> Mestrado Profissional em Administração"
+author: "EDVALDO GARCIA REZENDE"
+title-block-banner: "#27445C"
+date: today
+date-format: long
+format: 
+  html:
+    theme: flatly
+    embed-resources: true
+execute:
+  echo: true
+  message: false
+  warning: false
+---
+
+## Questão 1
+
+
+**a.** 
+
+
+
+**b.** 
+
+
+
+**c.** 
+
+
+
+**d.** 
+
+
+
+**e.** 
+
+
+
+**f.** 
+
+
+
+**g.** 
+
+
+
+**h.** 
+
+
+
+**i.** 
+
+
+
+**j.** 
+
+
+
+
+
+## Questão 2 
+
+
+
+**a.1.** Verificando se o estimador **a** é não viesado
+
+
+
+**a.1.** Verificando se o estimador **b** é não viesado
+
+
+
+**b.** 
+
+
+
+
+

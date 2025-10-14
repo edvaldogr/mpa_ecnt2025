@@ -1,0 +1,151 @@
+---
+title: "Minicurso Intensivo sobre Teoria da Probabilidade - Parte II"
+subtitle: "Econometria Aplicada à Finanças"
+lang: pt-BR
+author: "Seu Nome"
+date: 2025-09-09
+format: 
+  html:
+    theme: flatly
+    embed-resources: true
+    toc: true
+    number-sections: true
+execute:
+  echo: true
+  message: false
+  warning: false
+---
+
+
+```{r}
+#| label: setup
+#| echo: false
+
+# digitos exibidos
+options(digits = 5, scipen = 999)
+
+# Carrega os pacotes usados
+library(here)       # para trabalhar com caminhos relativos
+library(tidyverse)  # metapacote para ciência de dados 
+library(tidyquant)  # pacote para importar dados financeiros 
+```
+
+
+# Pacote tidyquant
+
+## Importação de Séries de Preços de Ações
+
+Para importar dados reais das séries de preços de ações da Petrobras 
+(PETR4) e do Itaú (ITUB4) a partir do dia 2024-01-01 usando 
+o Yahoo Finance, podemos usar o seguinte pipeline:
+
+```{r}
+# Solução robusta e simples para baixar múltiplas séries
+precos_acoes <- c("PETR4.SA", "ITUB4.SA") %>%
+  tq_get(from = "2024-01-01") %>%
+  select(symbol, date, close) %>%
+  rename(
+    empresa = symbol,
+    data = date,
+    preco = close
+  )
+
+# Exibe as primeiras linhas do dataframe
+head(precos_acoes)
+
+# Exibe as últimas linhas do dataframe
+tail(precos_acoes)
+```
+
+
+Esta é uma das poucas situaçõe em que transformar dados do 
+formato longo para o formato largo com a `pivot_wider()` 
+é necessário:""
+
+```{r}
+df_precos <- precos_acoes %>%
+  pivot_wider(names_from = empresa, values_from = preco) %>%
+  rename(petrobras = "PETR4.SA", itau = "ITUB4.SA")
+
+# exibe o objeto
+head(df_precos)
+```
+
+
+Agora, podemos calcular os retornos (compostos continuamente) das 
+duas séries de ações:
+
+```{r}
+# Calcula retornos diários logarítmicos
+df_retorno <- df_precos %>%
+  mutate(
+    ret_petrobras = log(petrobras / lag(petrobras)),
+    ret_itau      = log(itau / lag(itau))
+  ) %>%
+  # remove os dados faltantes
+  drop_na()
+
+# exibe a nova data frame
+head(df_retorno)
+```
+
+
+
+## Gráfico Exploratório da Densidade Empírica
+
+```{r}
+
+#gráfico da densidade empírica com o pacot ggplot2
+
+# salva o gráfico em um objeto
+g1_exploratorio <-
+  # ggplot() cria um sistema de coordenadas vazio
+  ggplot(df_retorno, aes(x = ret_petrobras)) + 
+  # adiciona um gráfico de densidade
+  geom_density()
+
+# exibe o gráfico
+g1_exploratorio
+```
+
+
+## Gráfico para Publicação
+
+```{r}
+# salva o gráfico em um objeto
+g1_publicacao <- 
+  # ggplot() cria um sistema de coordenadas vazio
+  ggplot(df_retorno, aes(x = ret_petrobras)) +
+  # adiciona um gráfico de densidade
+  # size define a espessura da linha
+  geom_density(size = 1) +
+  # adiciona título, subtítulo, rótulos dos eixos e fonte
+  labs(
+    title = "Estimativa da Densidade dos Retornos da Petrobras",
+    subtitle = "Período: 01/01/2024 a 09/09/2025",
+    x = "Retornos",
+    y = "Densidade",
+    caption = "Fonte: Yahoo Finance"
+  )  +
+  # define o tema do gráfico
+  theme_minimal()
+
+# exibe o gráfico
+g1_publicacao 
+```
+
+
+## Exercício
+
+Agora, escreva  código R para produzir um gráfico da 
+estimativa do kernel da densidade, mas para as séries de 
+retornos das ações do Itaú e para os retornos de 
+outras duas ações negociadas na B3. Escreva 
+uma breve análise de cada um dos gráficos 
+produzidos relatando os padrões que você conseguiu 
+identificar.
+
+
+
+
+

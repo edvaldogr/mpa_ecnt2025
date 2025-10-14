@@ -1,0 +1,1238 @@
+---
+title: "Modelo de Regressão Linear Múltipla"
+subtitle: "Diversos Aspectos"
+author: Seu Nome
+lang: pt
+format:
+  html:
+    theme: flatly
+    embed-resources: true
+    toc: true
+    number-sections: true
+    toc-depth: 3
+    self-contained: true
+crossref:
+  fig-prefix: 'Fig.'
+  tbl-prefix: 'Tab.'
+execute:
+  echo: true
+  message: false
+  warning: false
+  enabled: true
+editor: source
+bibliography: referencias.bib
+csl: associacao-brasileira-de-normas-tecnicas-ipea.csl
+---
+
+```{r}
+#| label: setup
+#| echo: false
+
+# configura exibição de números
+options(digits = 5, scipen = 999)
+
+# pacotes necessários
+library(tidyverse)
+library(car)
+library(wooldridge)
+library(Ecdat)
+library(stargazer)
+library(broom) 
+library(ggthemes)
+library(viridis)
+library(knitr)
+```
+
+
+# Modelo de Regressão Linear Múltipla
+
+
+## Exemplo - @wooldridge2006
+
+Estimadores de MQO dos Parâmetros ($\hat{\beta}$):
+
+$$
+\hat{\beta} = (X'X)^{-1}X'y
+$$
+
+
+```{r}
+# carrega os dados
+data(gpa1, package='wooldridge')
+
+# determina n = tamanho da amostra 
+n <- nrow(gpa1)
+
+# define o número de parâmetros (k)
+# beta_1 (intercepto), beta_2 e beta_3
+k <- 3
+
+# extrai y
+y <- gpa1$colGPA
+
+# extrai X e adiciona uma coluna de 1's para o intercepto
+X <- cbind(1, gpa1$hsGPA, gpa1$ACT)
+
+# exibe as primeiras linhas de X
+head(X)
+```
+
+
+calcula as estimativas de MQO dos parâmetros:
+
+```{r}
+# (X'X)^(-1) * X' * y
+betahat <- solve(t(X) %*% X) %*% t(X) %*% y 
+betahat
+```
+
+
+Estimativa da variância dos resíduos ($\hat{\sigma^2}$)
+
+$$
+\hat{\sigma}^2 = \frac{\hat{\epsilon}'\hat{\epsilon}}{n - k} = \frac{SQR}{n - k}
+$$
+
+
+```{r}
+# obtém os resíduos do modelo
+residuos <- y - X %*% betahat
+
+# obtém a variância dos resíduos
+sigma_hat <- as.numeric(t(residuos) %*% residuos / (n-k))
+sigma_hat 
+
+# obtém o erro padrão dos resíduos
+# também chamado de erro-padrão da regressão
+erro_padrao_residuos <- sqrt(sigma_hat)
+erro_padrao_residuos
+```
+
+
+Estimativa da Matriz de Variâncias-Covariâncias de $\hat{\beta}$:
+
+$$
+\hat{\text{Var}}(\hat{\beta}) = \hat{\sigma}^2 (X'X)^{-1}
+$$
+
+
+```{r}
+# variâncias estimadas das estimativas dos parâmetros 
+vcov_hat <- sigma_hat * solve( t(X) %*% X)
+vcov_hat
+
+# erros-padrão das estimativas dos parâmetros 
+erros_padrao_betahat <- sqrt(diag(vcov_hat)) 
+erros_padrao_betahat
+```
+
+
+Verificação dos cálculos anteriores usando a função `lm`:
+
+```{r}
+# usando a função lm
+reg_gpa <- lm(colGPA ~ hsGPA + ACT, data = gpa1)
+
+# estimativa dos parâmetros e do erro-padrão da regressão
+summary(reg_gpa)
+```
+
+
+```{r}
+# estimativa da matriz de variância-covariância
+vcov(reg_gpa)
+```
+
+
+
+
+# Ausência de Colinearidade Perfeita - $posto(X) = k$
+
+Colinearidade Perfeita:
+
+```{r}
+# modelo de regressão simulado (k = 3) com multicolinearidade exata
+set.seed(42)
+x1 <- runif(100)
+x2 <- 2 * x1        # x2 = 2*(x1)
+y <- rnorm(100)
+df <- data.frame(y, x1, x2)
+
+lm(y ~ x1 + x2, data = df)
+```
+
+
+## Fator de Inflação da Variância em R
+
+```{r}
+# estime um modelo de regressão linear múltipla usando 
+# dados internos do R
+lm_mtcars <- lm(mpg ~ ., data = mtcars)
+
+# VIF
+car::vif(lm_mtcars)
+```
+
+
+
+
+# H3 $E(\epsilon_i|X_i) = 0$ - Exogeneidade 
+
+
+## Simulação de Dados com Viés de Variável Omitida
+
+```{r}
+# ------------------------------------------------------------
+# Simulação para ilustrar VIÉS DE VARIÁVEL OMITIDA (OVB)
+# Modelo populacional: salario = beta0 + beta1*escolaridade + beta2*homem + u
+# Estudo 1 (viesado):    salario ~ escolaridade             (omite 'homem')
+# Estudo 2 (não viesado):salario ~ escolaridade + homem
+# ------------------------------------------------------------
+
+# fixa a semente para reprodutibilidade dos resultados
+set.seed(12345)
+
+# Define o tamanho da amostra (1000 observações)
+n <- 1000
+
+# Define os parâmetros populacionais (verdadeiros)
+beta0 <- 20
+beta1 <- 0.5
+beta2 <- 10
+
+# Cria o data frame com as variáveis simuladas
+# 'homem' é binária (FALSE/TRUE); em R, TRUE=1 e FALSE=0 em operações numéricas
+# 'escolaridade' ~ U(3,9), mas subtrai-se 3 quando homem==TRUE (1)
+# -> homens têm, em média, 3 anos a menos de escolaridade que mulheres
+# -> isso cria correlação entre 'escolaridade' (regressor incluído) e 'homem' (variável omitida)
+# -> ao omitir 'homem' na regressão, surge VIÉS de variável omitida em beta1
+omit_df <- tibble(
+  homem = sample(x = c(FALSE, TRUE), size = n, replace = TRUE),
+  escolaridade = runif(n, 3, 9) - 3 * homem,
+  salario = beta0 + beta1 * escolaridade + beta2 * homem + rnorm(n, sd = 7)
+)
+
+# exibe as primeiras linhas do data frame
+head(omit_df)
+```
+
+```{r}
+# Estima a regressão viesada (omite 'homem'); 
+# o coeficiente de 'escolaridade' absorve parte de beta2
+lm_viesado <- lm(salario ~ escolaridade, data = omit_df)
+summary(lm_viesado)
+```
+
+
+```{r}
+# Estima a regressão não viesada (inclui a variável relevante 'homem')
+lm_naoviesado <- lm(salario ~ escolaridade + homem, data = omit_df)
+summary(lm_naoviesado)
+```
+
+
+
+## Teste RESET em R
+
+```{r}
+library(lmtest)
+
+# modelos simulados
+x <- c(1:30)
+y1 <- 1 + x + x^2 + rnorm(30)
+y2 <- 1 + x + rnorm(30)
+```
+
+
+```{r}
+resettest(y1 ~ x, power=2, type="regressor")
+```
+
+
+```{r}
+resettest(y1 ~ x + I(x^2), power=2, type="regressor")
+```
+
+
+```{r}
+resettest(y2 ~ x, power=2, type="regressor")
+```
+
+
+
+
+# Simulação: Viés de Variável Omitida e Multicolinearidade
+
+
+## Variáveis Explicativas Independentes
+
+### Simulação 1
+
+- A primeira simulação assume que $x$ e $w$ afetam $y$ de forma **independente**.
+
+- Isto é, embora $x$ e $w$ ambos influenciem $y$, **eles não afetam um ao outro**, nem existe 
+um **fator comum** que os afete simultaneamente.
+
+- Nas simulações, esse fator comum é controlado pelo parâmetro de ponderação $\alpha$.
+
+- Neste caso específico, o peso atribuído ao fator comum que poderia afetar 
+simultaneamente $x$ e $w$ é **zero**, isto é, $\alpha = 0$.
+
+
+Código para a simulação 1 - independência
+
+```{r}
+#| echo: true
+#| eval: true
+
+# Define a semente para reprodutibilidade dos resultados
+set.seed(123456789)
+
+# Define o tamanho da amostra 
+N <- 1000
+
+# define os verdadeiros parâmetros populacionais
+a <- 2
+b <- 3
+c <- 4
+
+# simula um vetor de erro normal padrão para possível correlação entre X e W
+u_x <- rnorm(N)
+
+# define o parâmetro de correlação entre X e W 
+# alpha = 0 -> independência
+alpha <- 0
+
+# simula a variável explicativa X de forma aleatória (Uniforme)
+x <- x1 <- (1 - alpha) * runif(N) + alpha * u_x
+
+# simula a variável explicativa W de forma aleatória e independente de X
+w <- w1 <- (1 - alpha) * runif(N) + alpha * u_x
+
+# Comentário: se alpha = 1, X e W seriam idênticas 
+# (caso de multicolinearidade perfeita)
+
+# simula o termo de erro aleatório (não observado)
+u <- rnorm(N)
+
+# simula a variável dependente Y segundo o modelo populacional verdadeiro
+y <- a + b * x + c * w + u
+
+# Estima a regressão curta (Y em função apenas de X)
+lm1 <- lm(y ~ x)
+
+# Estima a regressão longa (Y em função de X e W)
+lm2 <- lm(y ~ x + w)
+```
+
+
+Resultados para X e W independentes:
+
+```{r}
+#| results: asis
+#| echo: false
+
+# resultados das regressões lm1 e lm2
+stargazer(list(lm1,lm2), 
+          type = "html", 
+          keep.stat = c("n","rsq"),
+          float = FALSE, 
+          font.size = "small", 
+          digits = 2, 
+          keep = c(1:6))
+```
+
+
+
+
+## Variáveis Explicativas Dependentes
+
+
+### Simulação 2
+
+- A segunda simulação permite a existência de **dependência** entre $x$ e $w$.
+
+- Na simulação, essa dependência é representada por um valor positivo do peso que cada 
+característica atribui ao **fator comum** $u_x$.
+
+- A Tabela mostra que, nesse caso, faz **grande diferença** estimar uma regressão curta ou 
+uma regressão longa.
+
+- A regressão curta produz uma estimativa viesada, pois ela incorpora o efeito de $w$ sobre $y$.
+
+- Quando esse efeito é devidamente incluído na regressão longa, as estimativas 
+tornam-se muito próximas dos valores verdadeiros dos parâmetros.
+
+
+
+
+Código para a simulação 2 - dependência
+
+```{r}
+alpha <- 0.5
+x <- x2 <- (1 - alpha)*runif(N) + alpha*u_x
+w <- w2 <- (1 - alpha)*runif(N) + alpha*u_x
+y <- a + b*x + c*w + u
+lm3 <- lm(y ~ x)
+lm4 <- lm(y ~ x + w)
+```
+
+
+
+Resultados para X e W Dependentes
+
+
+```{r}
+#| results: asis
+#| echo: false
+
+# resultados das regressões lm3 e lm4
+stargazer(list(lm3,lm4), 
+          type = "html", 
+          keep.stat = c("n","rsq"),
+          float = FALSE, 
+          font.size = "small", 
+          digits = 2, 
+          keep = c(1:6))
+```
+
+
+
+## Variáveis Explicativas Muito Dependentes
+
+### Simulação 3
+
+- A terceira simulação sugere que devemos ter **cautela para não confiar excessivamente em regressões longas**.
+
+- Se $x$ e $w$ são **altamente correlacionadas**, então a regressão curta fornece um 
+efeito combinado (ou duplo), enquanto a regressão longa **produz resultados sem sentido** — ou, 
+em termos coloquiais, **“lixo”**.
+
+- Na verdade, o efeito combinado é obtido somando-se os dois coeficientes.
+O modelo não consegue separar os dois efeitos.
+
+
+
+Código para a simulação 3 - Muita Dependência
+
+```{r}
+#| echo: true
+
+alpha <- 0.95
+x <- x3 <- (1 - alpha)*runif(N) + alpha*u_x
+w <- w3 <- (1 - alpha)*runif(N) + alpha*u_x
+y <- a + b*x + c*w + u
+lm5 <- lm(y ~ x)
+lm6 <- lm(y ~ x + w)
+```
+
+
+Resultados para X e W muito dependentes:
+
+```{r}
+#| results: asis
+#| echo: false
+
+# resultados das regressões lm5 e lm6
+stargazer(list(lm5,lm6), 
+          type = "html", 
+          keep.stat = c("n","rsq"),
+          float = FALSE, 
+          font.size = "small", 
+          digits=2, 
+          keep=c(1:6))
+```
+
+
+
+## Conclusão
+
+- Vimos o que ocorre ao estimar uma **regressão curta** quando há **dependência entre as variáveis**.
+
+- Quando **não há dependência**, a regressão curta apresenta um bom desempenho.
+
+- Entretanto, quando existe **dependência entre as variáveis**, a regressão curta passa a capturar 
+tanto o efeito de $x$ quanto o efeito de $w$ sobre $y$.
+
+- Executar **regressões longas** não é uma solução mágica.
+
+- Se as duas variáveis forem **fortemente correlacionadas**, a regressão longa não consegue 
+distinguir entre os dois efeitos distintos.
+
+- Trata-se de um problema de multicolinearidade.
+
+
+
+
+# H4 $V(\epsilon_i|X_i) = \sigma^2 < \infty$ - Homocedasticidade
+
+
+# Simulando Modelos Heterocedásticos
+
+Simulando o exemplo clássico de heterocedasticidade, o funil:
+
+
+```{r}
+# fixa a semente para reproducibilidade
+set.seed(12345)
+
+# simula o funil e salva em uma tibble
+dados_funil = tibble(
+  x = runif(1000, -3, 3),
+  e = rnorm(1000, 0, sd = 4 + 1.5 * x)
+)
+
+# grafico de dispersao usando o pacote ggplot2
+ggplot(dados_funil, aes(x = x, y = e)) +
+geom_point(color = "darkslategrey", size = 2.75, alpha = 0.5) +
+labs(x = "x", y = "u") +
+theme_minimal()
+```
+
+
+Outro exemplo de heterocedasticidade: A variância de $u$ é diferente nos 
+extremos de $x$:
+
+```{r}
+# fixa a semente para reproducibilidade
+set.seed(12345)
+
+# simula o funil e salva em uma tibble
+dados_extremos = tibble(
+  x = runif(1000, -3, 3),
+  e = rnorm(1000, 0, sd = 2 + x^2)
+)
+
+# grafico de dispersao usando o pacote ggplot2
+ggplot(dados_extremos, aes(x = x, y = e)) +
+geom_point(color = "darkslategrey", size = 2.75, alpha = 0.5) +
+labs(x = "x", y = "u") +
+theme_minimal()
+```
+
+
+Variâncias diferentes de $u$ por grupo:
+
+```{r}
+# fixa a semente para reproducibilidade
+set.seed(12345)
+
+# simula o funil e salva em uma tibble
+dados_grupos = tibble(
+  g = sample(c(F,T), 1000, replace = T),
+  x = runif(1000, -3, 3),
+  e = rnorm(1000, 0, sd = 0.5 + 2 * g)
+)
+
+# grafico de dispersao usando o pacote ggplot2
+ggplot(dados_grupos, aes(x = x, y = e, color = g, shape = g, alpha = g)) +
+geom_point(size = 2.75) +
+scale_color_manual(values = c("darkslategrey", "red")) +
+scale_shape_manual(values = c(16, 1)) +
+scale_alpha_manual(values = c(0.5, 0.8)) +
+labs(x = "x", y = "u") + 
+theme_minimal()
+```
+
+
+## Testes para dectar heterocedasticidade
+
+**Exemplos:** Estimar a relação entre as pontuações padronizadas 
+em testes (variável resposta) e (1) a 
+proporção aluno-professor e (2) a renda, ou seja:
+
+$$ 
+(\text{Test score})_i = \beta_0 + \beta_1 \text{Ratio}_i + 
+                         \beta_2 \text{Income}\_{i} + u\_i \tag{1} 
+$$
+
+**Problema potencial:** Heterocedasticidade... e não observamos $u_i$.
+
+**Solução:**
+
+1. Estimar a relação em $(1)$ usando Mínimos Quadrados Ordinários (MQO).
+
+2. Usar os resíduos $(e_i)$ para testar a heterocedasticidade:
+
+    - Teste de Goldfeld-Quandt
+    - Teste de Breusch-Pagan
+    - Teste de White
+
+Usaremos os dados `Caschool` contidos no pacote `Ecdat`.
+
+```{r}
+# seleciona e renomeia as variáveis desejadas
+# atribui o resultado para teste_df
+teste_df <- dplyr::select(Caschool, 
+                          test_score = testscr, 
+                          ratio = str, 
+                          income = avginc)
+
+# formata teste_df como tibble
+teste_df <- as_tibble(teste_df)
+
+# visualiza as 2 primeiras linhas do conjunto de dados
+head(teste_df, 2)
+
+# estrutura geral 
+dplyr::glimpse(teste_df)
+```
+
+Vamos começar estimando o modelo:
+
+$$ 
+(\text{Test score})_i = \beta_0 + \beta_1 \text{Ratio}_i + 
+                         \beta_2 \text{Income}\_{i} + u\_i \tag{1} 
+$$
+
+```{r}
+# estima o modelo
+model_est <- lm(test_score ~ ratio + income, data = teste_df)
+# resultados
+broom::tidy(model_est)
+```
+
+
+Agora, vamos ver o que os resíduos sugerem sobre heterocedasticidade.
+
+```{r}
+#| layout-ncol: 2
+
+# adiciona os resíduos à data frame
+teste_df$e <- residuals(model_est)
+
+# Criando o primeiro gráfico: resíduos vs renda
+ggplot(data = teste_df, aes(x = income, y = e)) +
+  geom_point(size = 2.5, alpha = 0.5, color = "#FF6F61") +
+  labs(x = "Renda", y = expression(italic(e))) +
+  theme_minimal(base_family = "serif")  
+
+# Criando o segundo gráfico: resíduos vs razão aluno-professor
+ggplot(data = teste_df, aes(x = ratio, y = e)) +
+  geom_point(size = 2.5, alpha = 0.5, color = "darkslategrey") +
+  labs(x = "Razão aluno-professor", y = expression(italic(e))) +
+  theme_minimal(base_family = "serif")
+```
+
+
+A renda parece potencialmente heterocedástica, vamos testar usando o 
+teste de Goldfeld-Quandt.
+
+
+### Teste de Goldfeld-Quandt
+
+Implementando o algoritmo:
+
+```{r}
+# ordena a df pela renda em ordem crescente
+test_df <- dplyr::arrange(teste_df, income)
+
+# reestima o modelo para as últimas e primeiras 158 observações
+modelo_est1 <- lm(test_score ~ ratio + income, data = tail(teste_df, 158))
+modelo_est2 <- lm(test_score ~ ratio + income, data = head(teste_df, 158))
+
+# armazena os resíduos de cada regressão
+e_modelo1 <- residuals(modelo_est1)
+e_modelo2 <- residuals(modelo_est2)
+
+# Calcula a rss para cada regressão
+rss_model1 <- sum(e_modelo1^2)
+rss_model2 <- sum(e_modelo2^2)
+```
+
+
+Cálculo da estatística de teste de Goldfeld-Quandt:
+
+$F_{n^\star-k,\,n^\star-k} = \dfrac{\text{RSS}_2}{\text{RSS}_1}$
+$\approx\dfrac{`r round(rss_model2, 2) %>% format(big.mark = ",")`}{`r round(rss_model1, 2) %>% format(big.mark = ",")`}$
+$\approx`r round(rss_model2/rss_model1, 2)`$
+
+Teste via $F_{158-3,\,158-3}$
+
+```{r}
+# estatatística do teste de G-Q 
+f_gq <- rss_model2/rss_model1
+f_gq
+```
+
+```{r}
+# valor-p
+pf(q = f_gq, df1 = 158-3, df2 = 158-3, lower.tail = F)
+```
+
+Reunindo tudo:
+
+$H_0$: $\sigma_1^2 = \sigma_2^2$ *vs.* $H_A$: $\sigma_1^2 \neq \sigma_2^2$
+
+Estatística de teste de Goldfeld-Quandt: $F \approx `r round(f_gq, 2)`$
+
+valor-p = $\approx `r round(pf(q = f_gq, df1 = 158-3, df2 = 158-3, lower.tail = F), 5)`$
+
+Portanto, os dados fornecem evidência para rejeitar a hipótese nula, o 
+valor-p é menor que 0,05.
+
+**Conclusão:** Há evidências estatisticamente significativas de que 
+$\sigma_1^2 \neq \sigma_2^2$. Portanto, encontramos evidências 
+estatisticamente significativas de heterocedasticidade, ao nível de 5%.
+
+
+E se tivéssemos escolhido focar na razão aluno-professor?
+
+```{r}
+# ordena os dados pela razão aluno-professor
+teste_df2 <- dplyr::arrange(teste_df, ratio)
+
+# Reestimar o modelo para as últimas e primeiras 158 observações
+modelo_est3 <- lm(test_score ~ ratio + income, data = tail(teste_df2, 158))
+modelo_est4 <- lm(test_score ~ ratio + income, data = head(teste_df2, 158))
+
+# Capturar os resíduos de cada regressão
+e_modelo3 <- residuals(modelo_est3)
+e_modelo4 <- residuals(modelo_est4)
+
+# Calcular a SSE para cada regressão
+(rss_model3 <- sum(e_modelo3^2))
+(rss_model4 <- sum(e_modelo4^2))
+```
+
+$F_{n^\star-k,\,n^\star-k} = \dfrac{\text{RSS}_4}{\text{RSS}_3} \approx\dfrac{`r round(rss_model4, 2) %>% format(big.mark = ",")`}{`r round(rss_model3, 2) %>% format(big.mark = ",")`} \approx`r round(rss_model4 / rss_model3, 2)`$
+
+que tem um valor-p de aproximadamente `r round(pf(rss_model4 / rss_model3, 158-3, 158-3, lower.tail = F), 4)`.
+ 
+Portanto, Teríamos falhado em rejeitar a hipótese nula (o valor-p é 
+maior que 0,05), concluindo que não encontramos evidências 
+estatisticamente significativas de heterocedasticidade.
+
+
+**Lição:** Importância de compreender as limitações dos estimadores, 
+testes, *etc.*
+
+
+
+### Teste de Breusch-Pagan
+
+Vamos testar o mesmo modelo com o teste de Breusch-Pagan.
+
+*Lembre-se:* Salvamos os resíduos como `e` em nossa data frame, 
+ou seja,
+
+```{r}
+# adiciona os resíduos à data frame
+teste_df$e <- residuals(model_est)
+```
+
+No teste de Breusch-Pagan, primeiro fazemos a regressão dos 
+resíduos ao quadrado ($e_i^2$) contra as variáveis explicativas e 
+usamos o $R^2$ resultante para calcular a estatística de teste:
+
+```{r}
+# regressão dos resíduos ao quadrado contra as variáveis explicativas
+modelo_bp <- lm(I(e^2) ~ ratio + income, data = test_df)
+
+# armazena o R2
+r2_bp <- summary(modelo_bp)$r.squared
+r2_bp
+```
+
+A estatística de teste de Breusch-Pagan é dada por: 
+
+$\text{LM} = n \times R^2_e$
+$\approx 420 \times `r r2_bp %>% round(7) %>% format(nsmall = 7, scientific = F)`$
+$\approx `r round(nrow(teste_df) * r2_bp, 4)`$
+
+que testamos contra uma distribuição $\chi_k^2$ (aqui: $k=2$, 
+$k$ é o número de variáveis explicativas, excluindo o intercepto).
+
+```{r}
+# estatistica do teste de B-P 
+estat_bp <- 420 * r2_bp
+estat_bp
+
+# calcula o valor-p
+pchisq(q = estat_bp, df = 2, lower.tail = F)
+```
+
+
+Reunindo tudo:
+
+$H_0$: $\alpha_1 = \alpha_2 = 0$ *vs.* $H_A$: $\alpha_1 \neq 0$ e/ou 
+$\alpha_2 \neq 0$
+
+para o modelo 
+
+$$
+u_i^2 = \alpha_0 + \alpha_1 \text{Ratio}_i + \alpha_2 \text{Income}_i + w_i
+$$
+
+Estatística de teste de Breusch-Pagan: $\widehat{\text{LM}} \approx `r round(estat_bp, 3)`$
+
+valor-p $\approx `r pchisq(q = estat_bp, df = 2, lower.tail = F) %>% round(3)`$
+
+Portanto, não rejeitamos a hipótese nula, o valor-p é maior que 0,05.
+
+**Conclusão:** Não encontramos evidências estatisticamente significativas de heterocedasticidade ao nível de 5%, ou seja, não encontramos evidências de 
+uma relação *linear* entre $u_i^2$ e as variáveis explicativas.
+
+
+
+### Teste de White
+
+O teste de White adiciona termos ao quadrado e interações ao teste de 
+Breusch-Pagan:
+
+$$
+\begin{align}
+\color{#314f4f}{u_{i}^2} =& \color{#314f4f}{\alpha_{0} + \alpha_{1} \text{Ratio}_{i} + \alpha_{2} \text{Income}_{i} } \\
+&+ \color{#e64173}{\alpha_{3} \text{Ratio}_{i}^2 + \alpha_{4} \text{Income}_{i}^2 + \alpha_{5} (\text{Ratio}_{i}\times\text{Income}_{i}}) \\
+&+ \color{#314f4f}{w_{i}}
+\end{align}
+$$
+
+o que altera a hipótese nula de 
+
+$H_0: \alpha_1 = \alpha_2 = 0$ para
+
+$H_0: \alpha_1 = \alpha_2 = \alpha_3 = \alpha_4 = \alpha_5 = 0$
+
+Assim, precisamos apenas atualizar nosso código R, e estaremos prontos.
+
+Aqui está a tradução:
+
+*Observação:* R tem uma notação peculiar para termos ao quadrado e 
+interações em `lm()`:
+
+- **Termos ao quadrado** usam `I()`, _por exemplo_, `lm(y ~ I(x^2))`
+
+- **Interações** usam `:` entre as variáveis, _por exemplo_, `lm(y ~ x1:x2)`
+
+*Exemplo:* Regressão de `y` contra o quadrado de `x1` e `x2` e contra a 
+interação de `x1` e `x2`:
+
+```r
+# Regressão quadrática com interações
+lm(y ~ x1 + x2 + I(x1^2) + I(x2^2) + x1:x2, data = pretend_df)
+```
+
+Implementando o algoritmo: 
+
+**Passo 1:** Regressão de $e_i^2$ contra as variáveis explicativas, 
+seus quadrados e interações:
+
+```{r}
+# regressão dos residuos quadráticos contra as variaveis explicativas, 
+# seus quadrados e interações
+modelo_white <- lm(
+  I(e^2) ~ ratio + income + I(ratio^2) + I(income^2) + ratio:income,
+  data = teste_df
+)
+```
+
+
+**Passo 2:** Armazene o $Rˆ2$ desta regressão
+
+```{r}
+# armazena o R2
+r2_white <- summary(modelo_white)$r.squared
+r2_white
+```
+
+
+**Passo 3:** Calcule a estatística do teste de White $\text{LM} = n \times R_e^2 \approx 420 \times `r round(r2_white, 3)`$
+
+```{r}
+# calcula a estatistica do teste de White
+estat_white <- 420 * r2_white
+estat_white
+```
+
+
+**Passo 4:** Calcule o valor-p the associado (onde $\text{LM} \overset{d}{\sim} \chi_k^2$); aqui, $k=5$
+
+```{r}
+# calcula o valor-p
+pchisq(q = estat_white, df = 5, lower.tail = F)
+```
+
+Reunindo tudo...
+
+$H_0: \alpha_1 = \alpha_2 = \alpha_3 = \alpha_4 = \alpha_5 = 0$
+*vs.* $H_A: \alpha_i \neq 0$ para algum $i \in \{1,\, 2,\,\ldots,\, 5\}$
+
+$$
+\begin{align}
+u_i^2 =& \alpha_0 + \alpha_1 \text{Ratio}_i + \alpha_2 \text{Income}_i \\
+&+ \alpha_3 \text{Ratio}_i^2 + \alpha_4 \text{Income}_i^2 \\
+&+ \alpha_5 \text{Ratio}_i \times \text{Income}_i + w_i
+\end{align}
+$$
+
+A estatística do teste de White é: $\text{LM} = n \times R_e^2 \approx 420 \times `r round(r2_white, 3)` \approx `r round(estat_white, 2)`$
+
+Sob a distribuição $\chi_5^2$, $\widehat{\text{LM}}$ tem 
+um valor-p menor que 0,001.
+
+Portanto, rejeitamos a hipótese nula, e concluímos que há evidências 
+estatisticamente significativas de heterocedasticidade, ao nível de 5%.
+
+
+
+## Convivendo com a heterocedasticidade
+
+Voltando ao conjunto de dados sobre pontuações em testes…
+
+```{r}
+# seleciona e renomeie as variáveis desejadas; 
+# atribui o resultado ao um novo conjunto de dados; 
+# salva o objeto como tibble
+teste_df <- Caschool %>% select(
+  test_score = testscr, ratio = str, income = avginc, enrollment = enrltot
+) %>% as_tibble()
+
+# visualizando as primeiras 2 linhas
+head(teste_df, 2)
+```
+
+Encontramos evidências significativas de heterocedasticidade. 
+Vamos verificar se foi devido à especificação incorreta do 
+nosso modelo:
+
+Modelo 1: 
+
+$\text{Score}_i = \beta_0 + \beta_1 \text{Ratio}_i + \beta_2 \text{Income}_i + u_i$
+
+Sintáxe R:
+
+`lm(test_score ~ ratio + income, data = teste_df)`
+
+
+```{r}
+# Estima o modelo 1 e salva os resíduos
+teste_df <- teste_df %>% 
+  mutate(e1 = lm(test_score ~ ratio + income, data = teste_df) %>% residuals())
+
+# grafico dos residuos do modelo 1 contra income
+ggplot(data = teste_df, aes(x = income, y = e1)) +
+  geom_point(size = 3,
+             alpha = 0.5,
+             color = "red") +
+  labs(x = "Income", y = "e1") +
+  theme_minimal()
+```
+
+
+Modelo 2: 
+
+$$
+\log\left(\text{Score}_i\right) = \beta_0 + \beta_1 \text{Ratio}_i + \beta_2 \text{Income}_i + u_i
+$$
+
+Sintáxe R:
+
+`lm(log(test_score) ~ ratio + income, data = teste_df)`
+
+
+```{r}
+# Estima o modelo 2 e salva os resíduos
+teste_df <- teste_df %>% 
+  mutate(e2 = lm(log(test_score) ~ ratio + income, data = teste_df) %>% residuals())
+
+# grafico dos residuos do modelo 2 contra income
+ggplot(data = teste_df, aes(x = income)) +
+  geom_point(aes(y = e2),
+             size = 3,
+             alpha = 0.5,
+             color = "red") +
+  labs(x = "Income", y = "e2") +
+  theme_minimal()
+```
+
+
+Modelo 3: 
+
+$$
+\log\left(\text{Score}_i\right) = \beta_0 + \beta_1 \text{Ratio}_i + \beta_2 \log\left(\text{Income}_i\right) + u_i
+$$
+
+Sintáxe R:
+
+`lm(log(test_score) ~ ratio + log(income), data = teste_df)`
+
+
+```{r}
+# Estima o modelo 3 e salva os resíduos
+teste_df <- teste_df %>% 
+mutate(e3 = lm(log(test_score) ~ ratio + log(income), data = teste_df) %>% residuals())
+
+# Plot
+ggplot(data = teste_df, aes(x = income)) +
+  geom_point(aes(y = e3),
+             size = 3,
+             alpha = 0.5,
+             color = "red") +
+  labs(x = "Income", y = "e3") +
+  theme_minimal()
+```
+
+
+Vamos testar essa nova especificação (Modelo 3) com o teste de White para heterocedasticidade.
+
+
+```{r}
+reg_white <- lm(e3^2 ~
+  ratio * log(income) + I(ratio^2) + I(log(income)^2),
+  data = teste_df
+) 
+
+white_r2_spec <- summary(reg_white)$r.squared
+
+white_stat_spec <- white_r2_spec * 420
+white_stat_spec 
+```
+
+Neste caso, a regressão para o teste de White é :
+
+$$
+\begin{align}
+  e_i^2 = &\alpha_0 + \alpha_1 \text{Ratio}_i + \alpha_2 \log\left(\text{Income}_i\right) + \alpha_3 \text{Ratio}_i^2 + \alpha_4 \left(\log\left(\text{Income}_i\right)\right)^2 \\
+  &+ \alpha_5 \left(\text{Ratio}_i\times\log\left(\text{Income}_i\right)\right) + v_i
+\end{align}
+$$
+
+
+que produz $R_e^2\approx`r round(white_r2_spec, 3)`$, sendo o valor da estatística 
+de teste:
+$\widehat{\text{LM}} = n\times R_e^2 \approx `r round(white_stat_spec, 1)`$.
+
+
+Sob a hipótese nula, a estatística do teste de White ($\text{LM}$) 
+segue uma distribuição $\chi_5^2$
+$\implies$ valor-p $\approx$ `r pchisq(white_stat_spec, 5, lower.tail = F) %>% round(3)`. Portanto,  Rejeitamos a hipótese nula.
+
+Conclusão: Há evidências estatisticamente significativas de 
+heterocedasticidade no nível de significância de 5%.
+
+Ok, tentamos ajustar nossa especificação, mas ainda há evidências de heterocedasticidade.
+
+**Nota:** Em geral, recorremos a erros padrão robustos à heterocedasticidade.
+
+- Os estimadores de MQO ainda são não viesados para os 
+coeficientes (os $\beta_j$'s).
+
+- Erros padrão robustos à heterocedasticidade são não viesados para os
+erros padrão dos $\hat{\beta}_j$'s, isto é, 
+$\sqrt{\mathop{\text{Var}} \left( \hat{\beta}_j \right)}$.
+
+
+Vamos retornar ao nosso modelo
+
+$$ 
+\text{Score}_i = \beta_0 + \beta_1 \text{Ratio}_i + \beta_2 \text{Income}_i + u_i 
+$$
+
+Podemos usar o pacote `lfe` de R para calcular erros padrão robustos à 
+heterocedasticidade.
+
+
+1.Execute a regressão usando a função `felm()` do pacote `lfe` 
+(em vez de `lm()`):
+
+```{r}
+library(lfe)
+
+# estima o modelo de regressao
+test_reg <- felm(test_score ~ ratio + income, data = teste_df)
+```
+
+
+*Observe* que `felm()` usa a mesma sintaxe que `lm()` para esta regressão.
+
+
+2. Estime erros padrão robustos à heterocedasticidade usando o argumento 
+`robust = T` da função `summary()`:
+
+```{r}
+# erros padrão robustos à heterocedasticidade com 'robust = T'
+summary(test_reg, robust = T)
+```
+
+
+### Comparação
+
+Estimativas dos Parâmetros e **erros padrão robustos à heterocedasticidade**:
+
+```{r}
+summary(test_reg, robust = T)
+```
+
+Estimativas dos Parâmetros e  **erros padrão com MQO** 
+(assume homocedasticidade):
+
+```{r}
+summary(test_reg, robust = F)
+```
+
+
+
+
+### Exemplo: Mínimos Quadrados Ponderados 
+
+
+#### Implementando WLS Manualmente
+
+Mencionamos que muitas vezes não é possível aplicar o método 
+WLS — pois precisamos saber a forma funcional da heterocedasticidade, 
+ou seja, precisamos saber:
+
+**A**. $\sigma_i^2$
+
+ou
+
+**B**. $h(x_i)$, sendo $\sigma_i^2 = \sigma^2 h(x_i)$
+
+
+Entretanto, há ocasiões em que podemos saber $h(x_i)$.
+
+Imagine que indivíduos em uma população têm erros homocedásticos.
+
+Entretanto, em vez de observar dados individuais, observamos 
+médias de grupos (por exemplo, médias de escolas, cidades, etc.).
+
+Se esses grupos tiverem tamanhos diferentes, nosso conjunto de dados será 
+heteroscedástico, de forma previsível.
+
+**Lembre-se:** A variância da média da amostra depende do tamanho da amostra,
+
+$$ 
+V(\bar{x}) = \dfrac{\sigma_x^2}{n} 
+$$
+
+**Exemplo:** Nossos dados de testes escolares são calculados em 
+média no nível da escola.
+
+*Exemplo:* São tomadas médidas dos testes no nível da escola.
+
+Mesmo que alunos individuais tenham erros homocedásticos, as escolas 
+teriam distúrbios heterocedásticos, _ou seja_,
+
+**Modelo nível-individual:** 
+
+$$
+\text{Score}_i = \beta_0 + \beta_1 \text{Ratio}_i + \beta_2 \text{Income}_i + u_i
+$$
+
+**Modelo nível-escola:** 
+
+$$
+\overline{\text{Score}}_s = \beta_0 + \beta_1 \overline{\text{Ratio}}_s + \beta_2 \overline{\text{Income}}_s + \overline{u}_s
+$$
+
+onde o subscrito $s$ denota uma escola individual (assim como $i$ denota 
+um aluno individualmente).
+
+$$ 
+\mathop{\text{Var}} \left( \overline{u}_s \right) = \dfrac{\sigma^2}{n_s} 
+$$
+
+Para WLS, estamos procurando uma função $h(x_s)$ tal que: 
+
+$$
+\mathop{\text{Var}} \left( \overline{u}_s | x_s \right) = \sigma^2 h(x_s)
+$$
+
+Supondo que os erros dos indivíduos sejam homocedásticas. 
+Acabamos de mostrar que:
+
+$$
+\mathop{\text{Var}} \left( \overline{u}_s |x_s \right) = \dfrac{\sigma^2}{n_s}
+$$
+
+Assim, $h(x_s) = 1/n_s$, onde $n_s$ é o número de alunos na escola $s$.
+
+
+Para implementar o método WLS, dividimos os dados de cada observação por 
+$1/\sqrt{h(x_s)}$, o que significa que precisamos multiplicar os dados 
+de cada escola por $\sqrt{n_s}$.
+
+A variável `enrollment` no conjunto de dados `teste_df` contém $n_s$.
+
+Para estimar o modelo usando WLS : 
+
+$$
+\text{Score}_i = \beta_0 + \beta_1 \text{Ratio}_i + \beta_2 \text{Income}_i + u_i
+$$
+Seguimos os seguintes passos:
+
+**Passo 1:** Multiplique cada variável por $1/\sqrt{h(x_i)} = \sqrt{\text{Enrollment}_i}$
+
+```{r}
+# Crie variáveis transformadas, multiplicando por sqrt de 'pop'
+teste_df <- mutate(teste_df,
+  test_score_wls = test_score * sqrt(enrollment),
+  ratio_wls      = ratio * sqrt(enrollment),
+  income_wls     = income * sqrt(enrollment),
+  intercepto_wls  = 1 * sqrt(enrollment)
+)
+```
+
+Observe que o intercepto também foi transformado.
+
+
+**Passo 2:** Execute a regressão usando WLS:
+
+```{R, wls2}
+# regressão usando o método WLS
+wls_reg <- lm(
+  test_score_wls ~ -1 + intercepto_wls + ratio_wls + income_wls,
+  data = teste_df
+)
+```
+
+
+*Nota:* O `-1` no código da regressão diz ao R para não adicionar um
+intercepto, já que estamos adicionando um intercepto transformado
+(`intercepto_wls`).
+
+As estimativas dos parâmetros e dos erros padrão por WLS:
+
+```{r}
+# visualiza os resultados
+summary(wls_reg)
+```
+
+
+### Implementando WLS usando a função `lm()`
+
+Podemos implementar WLS fornecendo os pesos para a função 
+`lm()` usando o argumento `weights`.
+
+```{r}
+lm_wls <- lm(test_score ~ ratio + income, data = teste_df, weights = enrollment)
+tidy(summary(lm_wls))
+```
+
+
+Estimativas por MQO e erros padrão robustos à heterocedasticidade:
+
+```{r}
+summary(test_reg, robust = T)
+```
+
+
+
+### Conclusões
+
+Neste exemplo
+
+- Erros-padrão robustos à heterocedasticidade não alteraram muito 
+as estimativas dos erros-padrão (em relação aos erros-padrão simples 
+via MQO).
+
+- As estimativas obtidas com WLS alteraram um pouco nossas respostas — 
+coeficientes e erros-padrão.
+
+Esses exemplos destacaram algumas coisas:
+
+1. Usar o estimador correto para os erros-padrão realmente 
+importa^[Participe de um seminário de economia/finanças e você verá o que quero dizer.].
+
+2. A econometria nem sempre oferece uma rota óbvia e *correta*.

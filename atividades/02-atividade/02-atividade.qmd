@@ -1,0 +1,618 @@
+---
+title: "Resolução da Atividade 2"
+subtitle: "Econometria Aplicada à Finanças"
+lang: pt-BR
+author: "EDVALDO GARCIA REZENDE"
+date: 2025-09-12
+format: 
+  html:
+    theme: flatly
+    embed-resources: true
+execute:
+  echo: true
+  message: false
+  warning: false
+---
+
+
+## Solução da Questão 1
+
+
+
+Partindo das definições de independência de eventos e eventos mutuamente 
+excludentes, temos:
+
+1.$A$ e $B$ são independentes se
+
+$$
+P(A\cap B)=P(A)P(B).
+$$
+
+2. $A$ e $B$ são mutuamente exclusivos (disjuntos) se $A\cap B=\varnothing$, logo
+
+$$
+P(A\cap B)=0.
+$$
+
+Suponha que $A$ e $B$ sejam simultaneamente independentes e mutuamente 
+exclusivos. Então,
+
+$$
+0=P(A\cap B)=P(A)P(B).
+$$
+
+Da igualdade $P(A)P(B)=0$ podemos concluir que
+
+$$
+P(A)=0 \text{ ou }P(B)=0.
+$$
+
+Neste caso, podemos concluir que:
+
+1. Se $P(A)>0$ e $P(B)>0$, então não é possível que $A$ e $B$ sejam ao 
+mesmo tempo independentes e disjuntos, pois a disjunção tem como condição que
+$P(A\cap B)=0$, enquanto a independência exigiria que 
+$P(A\cap B)=P(A)P(B)>0$, que leva a uma contradição.
+
+2. Assim, eles só podem ser independentes e mutuamente exclusivos no caso em 
+que pelo menos um dos eventos tenha probabilidade nula, ou seja ($P(A)=0$ ou
+$P(B)=0$).
+
+
+
+## Solução da Questão 2
+
+
+
+
+1. Construção do espaço amostral $S$: 
+
+Para a construção do espaço amostral $S$, vamos considerar as possíveis 
+ocorrências. que são as seguintes:
+
+* $s_0:$: Nenhuma aquisição (não ocorreu aquisição no período observado);
+* $s_H:$: Aquisição hostil (houve aquisição classificada como hostil).
+* $s_A:$: Aquisição amigável (houve aquisição classificada como amigável).
+
+Portanto, temos como espaço amostral:
+
+$$
+S=\{\,s_0,\,s_H,\,s_A\,\}.
+$$
+
+
+É claro que os três resultados são mutuamente exclusivos, ou seja, apenas um
+pode ocorrer.
+
+2. Definição dos eventos 
+
+A partir de $S$ definimos eventos de interesse como subconjuntos de $S$:
+
+* Evento "Aquisição Ocorreu":
+
+  $$
+  S_{aquisição} = \{\,s_H,\,s_A\,\}.
+  $$
+* Evento "Aquisição Hostil":
+
+  $$
+  S_H = \{\,s_H\,\}.
+  $$
+* Evento "Aquisição Amigável":
+
+  $$
+  S_A = \{\,s_A\,\}.
+  $$
+* Evento "Nenhuma Aquisição":
+
+  $$
+  S_0 = \{\,s_0\,\}.
+  $$
+
+
+3. Conjunto das partes $2^{S}$ (todos os subconjuntos de $S$)
+
+O conjunto das partes $2^{S}$ é o conjunto de todos os subconjuntos de $S$. 
+Como $|S|=3$, temos $2^{3}=8$ subconjuntos, que são:
+
+$$
+\begin{aligned}
+2^{S}=\big\{\varnothing,\ \{s_{0}\},\ \{s_{H}\},\ \{s_{A}\},
+\{s_{0},s_{H}\},\ \{s_{0},s_{A}\},\ \{s_{H},s_{A}\},\ \{s_{0},s_{H},s_{A}\}\big\}.
+\end{aligned}
+$$
+
+Onde podemos identificar:
+
+1. $\varnothing$ — "evento impossível".
+2. $\{s_0\}$ — "nenhuma aquisição".
+3. $\{s_H\}$ — "aquisição hostil".
+4. $\{s_A\}$ — "aquisição amigável".
+5. $\{s_0,s_H\}$ — ou "nenhuma aquisição" ou "aquisição hostil" 
+(equivalente a “não houve aquisição amigável”).
+6. $\{s_0,s_A\}$ — ou "nenhuma aquisição" ou "aquisição amigável" 
+(equivalente a “não houve aquisição hostil”).
+7. $\{s_H,s_A\}$ — houve aquisição 
+(independente do tipo, pois inclui hostil ou amigável). 
+8. $\{s_0,s_H,s_A\}=S$ — evento certo (todo o universo amostral).
+
+
+
+## Solução da Questão 3
+
+Inicialmente, vamos identificar explicitamente as regiões da Figura 1 em valores
+percentuais e decimais:
+
+* $a$ — somente $A$: $12\% = 0,12$
+* $b$ — somente $B$: $16\% = 0,16$
+* $c$ — somente $C$: $10\% = 0,1$
+* $ab$ — $A\cap B$ excluindo $C$: $11\% = 0,11$
+* $ac$ — $A\cap C$ excluindo $B$: $15\% = 0,15$
+* $bc$ — $B\cap C$ excluindo $A$: $18\% = 0,18$
+* $abc$ — $A\cap B\cap C$: $10\%$
+* $o$ - região fora dos três conjuntos (complemento de $A\cup B\cup C$): 
+
+$$
+\begin{aligned}
+o = \\
+= 1 - a - b - c - ab - ac - bc - abc = \\
+= 1 - 0,12 - 0,16 - 0,1 - 0,11 - 0,15 - 0,18 = \\
+= 0,18 = 18\% 
+\end{aligned}
+$$
+
+
+
+**a.**
+$P(A)$ e $P(\overline{A})$
+
+Por definição,
+
+$$
+P(A)=\text{soma das regiões que pertencem a }A
+= a + ab + ac + abc.
+$$
+
+Substituindo:
+
+$$
+P(A)=0,12 + 0,11 + 0,15 + 0,1 = 0,48.
+$$
+
+Logo $P(A)=0,48$.
+
+O complementar é
+
+$$
+P(\overline{A}) = 1 - P(A) = 1 - 0,48 = 0,52.
+$$
+
+**b.**
+$P(A\mid B)$
+
+Da definição condicional, temos:
+
+$$
+P(A\mid B)=\frac{P(A\cap B)}{P(B)}.
+$$
+
+Temos $A\cap B = ab + abc = 0,11 + 0,1 = 0,21$.
+Também
+
+$$
+P(B)=b + ab + bc + abc = 0,16 + 0,11 + 0,18 + 0,1 = 0,55.
+$$
+
+Portanto
+
+$$
+P(A\mid B)=\frac{0,21}{0,55}=\frac{21}{55}\approx 0,381818\ (\approx 38,18\%).
+$$
+
+
+**c.**
+$P(B\mid A)$
+
+Da definição condicional, temos:
+
+$$
+P(B\mid A)=\frac{P(A\cap B)}{P(A)}=\frac{0,21}{0,48}=\frac{21}{48}=0,4375\ = 43,75\%.
+$$
+
+**d.**
+
+$P(A\cup B\cup C)$
+
+É a soma de todas as regiões dos três círculos:
+
+$$
+\begin{align} 
+P(A\cup B\cup C)=a +b +c +ab +ac +bc +abc = \\
+0,12 + 0,16 + 0,1 + 0,11 + 0,15 + 0,18 = \\
+0,82 = 82\%
+\end{align} 
+$$
+
+**e.**
+$P\bigl(B \mid A\cap C\bigr)$
+
+Primeiro $A\cap C = ac + abc = 0,15 + 0,1 = 0,25.$
+Interseção de $B$ com $A\cap C$ é exatamente a região tripla $abc = 0,1$.
+Logo
+
+$$
+P\bigl(B \mid A\cap C\bigr)=\frac{P(B\cap A\cap C)}{P(A\cap C)}=\frac{0,10}{0,25}=0,4= 40\%.
+$$
+
+**f.**
+
+$P\bigl(A\cap B \mid C\bigr)$
+
+
+Primeiramente:
+$$
+P(C) = c + ac + bc + abc = 0,1 + 0,15 + 0,18 + 0,1 =0,53= 53\%.
+$$
+
+E $A\cap B \cap C = abc = 0,1=10\%$. 
+
+Portanto
+
+$$
+P\bigl(A\cap B \mid C\bigr)  =\frac{P(A\cap B\cap C)}{P(C)}=\frac{0,10}{0,53} \approx 0,188679\ (\approx 18,87\%).
+$$
+
+**g.**
+
+$P\bigl(A\cup B \mid C\bigr)$
+
+No numerador queremos $(A\cup B)\cap C$, isto é todas as regiões de $C$ que também estão em $A$ ou em $B$. Essas regiões são $ac,\,bc,\,abc$ cuja soma é
+
+$$
+ac + bc + abc = 0,15 + 0,18 + 0,1 = 0,43 = 43\%.
+$$
+
+Dividindo por $P(C)=0,53$:
+
+$$
+P\bigl(A\cup B \mid C\bigr) = \frac{0,43}{0,53} \approx 0,811321\ (\approx 81,13\%).
+$$
+
+
+
+## Solução da Questão 4
+
+
+
+
+Seja $E_{t}$ o evento “o gestor supera o benchmark no ano $t$”. Pelo enunciado:
+
+$$
+P(E_{t}) = \frac{1}{2}\quad\text{para cada }t,
+$$
+
+e os eventos $E_{1},E_{2},\dots,E_{10}$ são mutuamente independentes.
+
+A probabilidade de que todos os dez eventos ocorram (isto é, superar o 
+benchmark em cada um dos dez anos consecutivos) é, pela regra do produto 
+para eventos independentes:
+
+$$
+P\biggl(\bigcap_{t=1}^{10} E_t\biggr)
+= \prod_{t=1}^{10} P(E_t)
+= \left(\frac{1}{2}\right)^{10} = \frac{1}{2^{10}} = \frac{1}{1024} \approx 0,00098\approx 0,098\%.
+$$
+Logo, a probabilidade de que um gestor aleatório supere o benchmark por dez anos
+consecutivos é aproximadamente $0,098\%$.
+
+
+
+## Solução da Questão 5
+
+Vamos considerar:
+
+* $F$ = evento “transação fraudulenta”;
+* $L$ = evento “transação legítima”;
+* $\widehat{F}$ = evento “algoritmo classifica a transação como fraudulenta”;
+* $\widehat{L}$ = evento “algoritmo classifica a transação como legítima”.
+
+Dados (em probabilidades):
+
+$$
+P(F)=0,001\%=0,00001,
+\qquad
+P(L)=1-0,00001=0,99999.
+$$
+
+Sensibilidade (probabilidade de detectar fraude):
+
+$$
+P(\widehat{F}\mid F)=0,90
+\quad\Rightarrow\quad
+P(\widehat{L}\mid F)=1-0,90=0,10.
+$$
+
+Taxa de falso positivo (probabilidade de classificar legítima como fraudulenta):
+
+$$
+P(\widehat{F}\mid L)=0,0001\%=0,000001
+\quad\Rightarrow\quad
+P(\widehat{L}\mid L)=1-0,000001=0,999999.
+$$
+
+Deseja-se calcular:
+
+$$
+P\bigl(F\mid \widehat{L}\bigr).
+$$
+
+Aplicando o teorema de Bayes, temos:
+
+$$
+P(F\mid \widehat{L})
+=\frac{P(\widehat{L}\mid F)\,P(F)}
+{P(\widehat{L}\mid F)\,P(F) \;+\; P(\widehat{L}\mid L)\,P(L)}.
+$$
+
+Substituindo os valores, temos:
+
+$$
+\begin{align} 
+P(F\mid \widehat{L})
+= \frac{0,10 \times 0,00001}
+{0,10\times 0,00001 \;+\; 0,999999\times 0,99999} \\
+=\frac{0,000001}{0,99999000001}
+\approx 0,00000100001\approx 0,00010\%.
+\end{align} 
+$$
+
+Portanto, a probabilidade de que uma transação seja fraudulenta apesar de 
+o algoritmo a ter classificado como legítima é aproximadamente $0,00000100001$, 
+ou $0,00010\%$.
+
+
+
+
+## Solução da Questão 6
+
+
+
+A definição do teorema de Bayes, para eventos $A$ e $B$ 
+com $P(A)>0$ e $P(B)>0$) é:
+
+$$
+P(B\mid A)=\frac{P(A\mid B)\,P(B)}{P(A)}.
+$$
+
+De modo análogo, temos:
+
+$$
+P(A\mid B)=\frac{P(B\mid A)\,P(A)}{P(B)}.
+$$
+### Primeira questão: $A$ e $B$ independentes
+
+Se $A$ e $B$ são independentes, então:
+
+$$
+P(A\cap B)=P(A)\,P(B).
+$$
+
+Logo,
+
+$$
+P(A\mid B)=P(A)
+\quad\text{e}\quad
+P(B\mid A)=P(B).
+$$
+
+Supondo que $P(A)>0$ e $P(B)>0$, e usando o teorema de Bayes, temos:
+
+$$
+P(B\mid A)=\frac{P(A\mid B)\,P(B)}{P(A)}.
+$$
+
+Mas, pela independência, $P(A\mid B)=P(A)$. Assim:
+
+$$
+P(B\mid A)=\frac{P(A)\,P(B)}{P(A)}=P(B).
+$$
+
+Ou seja, a ocorrência de $A$ não altera a probabilidade de $B$.
+
+
+### Segunda questão: $B$ subconjunto de $A$ $(B\subseteq A)$ 
+
+
+Se $B\subseteq A$, então sempre que $B$ ocorre também ocorre $A$. 
+
+Em termos de probabilidades:
+
+$$
+A\cap B = B.
+$$
+
+Logo:
+
+* $P(A\mid B)=1$ (pois, caso aconteça $B$, $A$ ocorre com certeza).
+* $0\le P(B)\le P(A)\le 1$.
+
+Aplicando do teorema de Bayes e usando $P(A\mid B)=1$, temos:
+
+$$
+P(B\mid A)=\frac{P(A\mid B)\,P(B)}{P(A)}
+=\frac{1 \cdot P(B)}{P(A)}
+=\frac{P(B)}{P(A)}.
+$$
+
+Neste caso, o teorema de Bayes fornece uma expressão simples e útil para 
+a probabilidade posterior $P(B\mid A)$: é a razão entre as probabilidades 
+marginais de $B$ e $A$.
+Ou seja, dado que $A$ ocorreu, a probabilidade de que tenha sido $B$ é a fração 
+das ocorrências de $A$ que correspondem a $B$.
+
+
+## Solução da Questão 7
+
+### a. Relação entre as distribuições marginais quando $X$ e $Y$ são independentes
+
+Para as variáveis aleatórias $X$ e $Y$, a função densidade conjunta é
+definida por $f_{X,Y}(x,y)$.
+
+* As distribuições marginais são:
+
+  $$
+  f_{X}(x)=\int_{-\infty}^{\infty} f_{X,Y}(x,y)\,dy,\qquad
+  f_{Y}(y)=\int_{-\infty}^{\infty} f_{X,Y}(x,y)\,dx
+  $$
+
+As variáveis $X$ e $Y$ são independentes se, para todo $(x,y)$, temos:
+
+$$
+P(X\in dx,\,Y\in dy) = P(X\in dx)\,P(Y\in dy).
+$$
+
+Isso equivale a:
+  $$
+  f_{X,Y}(x,y)=f_X(x)\,f_Y(y)\quad\text{para quase todo }(x,y).
+  $$
+Assim,a distribuição marginal de $X$ obtida a partir da função conjunta 
+mantém-se a mesma quando condicionamos em $Y$.
+
+
+## b. Quando as distribuições condicionais são iguais às 
+distribuições marginais?
+
+
+
+As distribuições condicionais coincidem com as marginais se e somente se $X$ 
+e $Y$ são independentes para todos os valores $y$ tais que $f_Y(y)>0$ .
+
+Demonstração: Suponha $f_Y(y)>0$. A distribuição condicional de $X$ 
+dado $Y=y$ é
+
+$$
+f_{X\mid Y}(x\mid y)=\frac{f_{X,Y}(x,y)}{f_Y(y)}.
+$$
+
+Se $f_{X\mid Y}(x\mid y)=f_X(x)$ para todo $y$ com $f_Y(y)>0$, então
+
+$$
+f_{X,Y}(x,y)=f_{X\mid Y}(x\mid y)\,f_Y(y)=f_X(x)\,f_Y(y),
+$$
+
+o que é exatamente a fatorização que caracteriza independência. 
+
+Reciprocamente, se $f_{X,Y}(x,y)=f_X(x)f_Y(y)$ então, para todo $y$ 
+com $f_Y(y)>0$,
+
+$$
+f_{X\mid Y}(x\mid y)=\frac{f_X(x)f_Y(y)}{f_Y(y)}=f_X(x).
+$$
+
+
+
+Portanto, as distribuições condicionais coincidem com as marginais precisamente 
+quando $X$ e $Y$ são independentes (ou seja, quando a igualdade vale para 
+todo $y$ no suporte de $Y$); o inverso também é verdadeiro.
+
+
+
+## Solução da Questão 8
+
+
+**a.** Distribuições Marginais de $X_1$ e $X_2$
+
+
+| Grande Empresa ($X_1$) \\ Startup ($X_2$) | – USD 1M | USD 0 | USD 2M | USD 4M | **$f_{X_1}(x_1)$** |
+|------------------------------------------|----------|-------|--------|--------|------------------------|
+| – USD 50M                                | 1.97%    | 3.90% | 0.8%   | 0.1%   |                        |
+| USD 0                                    | 3.93%    | 23.5% | 12.6%  | 2.99%  |                        |
+| USD 10M                                  | 0.8%     | 12.7% | 14.2%  | 6.68%  |                        |
+| USD 100M                                 | 0%       | 3.09% | 6.58%  | 6.16%  |                        |
+| **$f_{X_2}(x_2)$**.                      |          |       |        |   -    | **1**                  |
+
+
+Definimos $X_1$ = lucro anual da Grande Empresa e $X_2$ = lucro anual da Startup. A Tabela 1 fornece a distribuição conjunta
+
+$$
+f_{X_1,X_2}(x_1,x_2)=F(X_1=x_1,\;X_2=x_2),
+$$
+Pela definição, temos:
+
+$$
+f_{X_1}(x_1)=\sum_{x_2} p_{X_1,X_2}(x_1,x_2),\qquad
+f_{X_2}(x_2)=\sum_{x_1} p_{X_1,X_2}(x_1,x_2).
+$$
+
+Calculando a distribuição Marginal de $X_1$:
+
+* $f_{X_1}(-50M) = 1,97\% + 3,90\% + 0,8\% + 0,1\% = 6,77\%\Rightarrow 0,0677.$
+* $f_{X_1}(0) = 3,93\% +23,50\% +12,60\% +2,99\% = 43,02\%\Rightarrow 0,4302.$
+* $f_{X_1}(10M)= 0,8\%  +12,7\%  +14,2\%  +6,68\% = 34,38\%\Rightarrow 0,3438.$
+* $f_{X_1}(100M)=0,0\%  +3,09\%  +6,58\%  +6,16\% = 15,83\%\Rightarrow 0,1583.$
+
+Calculando a distribuição Marginal de $X_2$** 
+
+* $f_{X_2}(-1M) = 1,97\% +3,93\% +0,8\% +0,0\% = 6,70\%\Rightarrow 0,0670.$
+* $f_{X_2}(0) = 3,90\% +23,50\% +12,7\% +3,09\% = 43,19\%\Rightarrow 0,4319.$
+* $f_{X_2}(2M)= 0,8\%  +12,6\% +14,2\% +6,58\% = 34,18\%\Rightarrow 0,3418.$
+* $f_{X_2}(4M)= 0,1\%  +2,99\% +6,68\% +6,16\% = 15,93\%\Rightarrow 0,1593.$
+
+**b.**
+
+Para serem independentes, devemos ter:
+
+$$
+f_{X_1,X_2}(x_1,x_2)=f_{X_1}(x_1)\,f_{X_2}(x_2)\quad\text{para todo }(x_1,x_2).
+$$
+
+No entanto, se considerarmos o caso para $(x_1,x_2)=(-50M,-1M)$, temos:
+
+$$
+f_{X_1,X_2}(-50M,-1M)=0,0197.
+$$
+
+Por outro lado,
+
+$$
+f_{X_1}(-50M)\,p_{X_2}(-1M) = 0,0677\times 0,0670 \approx 0,00454.
+$$
+
+Como $0,0197\neq 0,00454$, logo $X_1$ e $X_2$ não são independentes.
+
+
+**c.**
+
+Para obter:
+
+$$
+f_{X_2\mid X_1}(x_2\mid X_1=100M)=\frac{f_{X_1,X_2}(100M,x_2)}{f_{X_1}(100M)}.
+$$
+
+Da tabela 1, obtemos os elementos do numerador (linha $X_1=100M$) são, 
+em probabilidade decimal:
+
+$$
+\begin{align}
+f_{X_1,X_2}(100M,-1M)=0,0000\\
+f_{X_1,X_2}(100M,0)=0,0309 \\
+f_{X_1,X_2}(100M,2M)=0,0658\\
+f_{X_1,X_2}(100M,4M)=0,0616.
+\end{align}
+$$
+O denominador é: $f_{X_1}(100\text{M})=0,1583$.
+
+Portanto (cálculo elemento a elemento):
+
+* $f_{X_2\mid X_1}( -1\text{M} \mid 100\text{M}) = \frac{0,0000}{0,1583} = 0.$
+
+* $f_{X_2\mid X_1}( 0 \mid 100M) = \frac{0,0309}{0,1583} \approx 0,195199 \approx 19,52\%.$
+
+* $f_{X_2\mid X_1}( 2M \mid 100M) = \frac{0,0658}{0,1583} \approx 0,415666 \approx 41,57\%.$
+
+* $f_{X_2\mid X_1}( 4M \mid 100M) = \frac{0,0616}{0,1583} \approx 0,389135 \approx 38,91\%.$
+
+
+Logo, se a Grande Empresa teve lucro de USD 100M, a distribuição condicional 
+dos lucros da Startup coloca probabilidade nula em $-1$M e concentra massa 
+nos valores 0, 2M e 4M, com a maior probabilidade no valor USD 2M (\~41,57%).

@@ -1,0 +1,92 @@
+---
+title: "Atividade 1 - Resolução"
+subtitle: "Disciplina de Econometria Aplicada à Finanças"
+lang: pt-BR
+author: "Edvaldo Garcia Rezende"
+date: 2025-09-01
+format: 
+  html:
+    theme: flatly
+    embed-resources: true
+    toc: true
+    number-sections: true
+execute:
+  echo: true
+  message: false
+  warning: false
+---
+
+
+
+# Exercício 1
+
+## Item a
+
+Arquivo criado usando o menu File do R Studio.
+
+## Item b
+
+Cabeçalho preenchido acima como solicitado no exercício.
+
+## Item c
+
+Sou Edvaldo Rezende, bacharel em Matemática pela UFOP, atualmente cursando 
+o Mestrado Profissional em Administração e Finanças do IFMG – Campus Formiga. 
+Tenho grande interesse em aprofundar meus conhecimentos em métodos quantitativos
+aplicados à análise financeira, especialmente aqueles que contribuem para 
+decisões mais embasadas e estratégicas no investimento em ações. Acredito que 
+a formação acadêmica aliada à prática profissional é essencial para enfrentar 
+os desafios do mercado com mais precisão e visão crítica.
+
+Na disciplina de Econometria Aplicada a Finanças, espero desenvolver habilidades
+técnicas para modelar e interpretar dados financeiros de forma robusta, 
+utilizando ferramentas estatísticas que permitam compreender padrões, prever 
+comportamentos e avaliar riscos. Estou particularmente interessado em aprender 
+como aplicar esses modelos em contextos reais, como avaliação de investimentos, 
+análise de séries temporais e estudos de correlação entre variáveis econômicas.
+Tenho certeza de que essa disciplina será fundamental para minha evolução como 
+pesquisador e profissional da área financeira.
+
+## Item d
+
+
+Criação do vetor idades com alguns dados e cálculo de média, menor e maior valor.
+
+```{r}
+# vetor idades
+idades <- c(20, 22, 19, 23)
+media <- mean(idades)
+menor <- min(idades)
+maior <- max(idades)
+
+# média de idade
+cat("A média de idades é:", media, "\n")
+  
+# menor idade
+cat("A menor idade é:", menor, "\n") 
+
+# maior idade
+cat("A maior idade é:", maior, "\n")    
+```
+## Item e
+
+Renderizado como html com sucesso.
+
+
+## Item f
+
+Renderizado como pdf usando o comando `quarto::quarto_render("relatorios/testes/02-teste/02-teste.qmd", output_format = "pdf")` 
+no console com sucesso.
+
+## Item g
+
+Inicialmente não funcionou pois o pacote tinytex apresentou conflito com o 
+aplicativo Miktex que estava instalado no notebook. Após remover o Miktex 
+o conflito foi resolvido e, apesar da demora, o comando para renderizar 
+o arquivo para PDF funcionou.
+
+
+
+
+
+
