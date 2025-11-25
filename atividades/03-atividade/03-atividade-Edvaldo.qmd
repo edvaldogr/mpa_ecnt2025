@@ -1,0 +1,1727 @@
+---
+lang: "pt-BR"
+title: "Resolução da Atividade 3"
+subtitle: "Econometria Aplicada à Finanças <br> Mestrado Profissional em Administração"
+author: "EDVALDO GARCIA REZENDE"
+title-block-banner: "#27445C"
+date: 2025-11-18
+date-format: long
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-location: left
+execute: 
+  echo: false
+  warning: false
+  message: false
+engine: knitr
+---
+
+
+```{r}
+#| label: setup
+#| echo: false
+
+# carrega todos os pacotes listados
+# e instala, se necessário, possíveis pacotes não instalados
+pacman::p_load(
+    tidyverse, estimatr, Ecdat, 
+    sandwich, lmtest, car, 
+    whitestrap, broom, knitr, marginaleffects, devtools 
+)
+
+
+#instala o pacote POE5RData do Github
+devtools::install_github("ccolonescu/POE5Rdata")
+
+#carrega o pacote POE5RData do Github
+library(POE5Rdata)
+
+# carrega os dados capm5 do pacote POE5Rdata
+data("capm5")
+
+# carrega os dados Hmda do pacote Ecdat
+data("Hmda")
+```
+
+
+
+
+# Questão 1
+
+
+
+**A.** 
+
+O modelo econométrico do CAPM é dado por:
+$$r_{j}-r_{f}=\alpha_{j}+\beta_{j}(r_{m}-r_{f})+e_{j}$$
+
+O modelo acima é classificado como um modelo de regressão linear simples porque 
+possui apenas uma variável explicativa (ou regressora). Na equação desse modelo
+podemos identificar os seguintes elementos (variáveis e coeficientes): 
+
+Variável Dependente ($Y$): O prêmio de risco do ativo $j$, dado por 
+$Y=(r_{j}-r_{f})$.
+
+Variável Explicativa ($X$): O prêmio de risco da carteira de mercado, dado por
+$X=(r_{m}-r_{f})$.
+
+Coeficiente $\alpha_{j}$ (Alfa de Jensen ou Intercepto): representa o retorno 
+excedente do ativo $j$ que não é explicado pelo prêmio de risco de mercado.
+
+Coeficiente $\beta_{j}$ (Beta): Representa a sensibilidade do prêmio de risco 
+do ativo $j$ em relação ao prêmio de risco de mercado, ou seja, a volatilidade
+da ação em relação ao mercado.
+
+Assim poderíamos reescrever a equação como um modelo de regressão linear simples
+da seguinte forma:
+$$r_{j}-r_{f}=\alpha_{j}+\beta_{j}(r_{m}-r_{f})+e_{j} \Rightarrow \\    Y=\alpha_{j}+\beta_{j}X+e_{j}$$
+
+Essa equação, com uma variável dependente e uma única variável explicativa, 
+encaixa-se perfeitamente na definição de Regressão Linear Simples.
+
+O termo de erro ($e_{j}$), é incluído no modelo econométrico por diversas 
+razões, como:
+
+1. Representar fatores não observados: O CAPM teórico afirma que o prêmio de 
+risco de um ativo é proporcional ao prêmio de risco de mercado. No entanto, 
+outros fatores além do retorno de mercado afetam o retorno de uma ação (como 
+eventos específicos da empresa, mudanças na gestão, e fatores macroeconômicos 
+não relacionados ao mercado geral). Assim, o termo de erro captura a influência
+agregada desses inúmeros fatores não incluídos explicitamente no modelo.
+
+2. Erros de medição: Pode haver imprecisões na medição dos retornos. O termo de 
+erro ajuda a absorver esses erros.
+
+3. Natureza aleatória: O comportamento dos investidores e dos mercados 
+financeiros é, em grande parte, aleatório e imprevisível. O termo de erro 
+incorpora essa incerteza inerente à modelagem de fenômenos econômicos e 
+financeiros.
+
+
+**B.** 
+
+```{r}
+
+# Carregar os Dados
+dados_capm <- capm5 
+
+# Preparação dos Dados: Cálculo dos Prêmios de Risco
+# Prêmios de Risco do Ativo (Y): r_j - r_f
+# Prêmios de Risco do Mercado (X): r_m - r_f 
+
+dados_capm_pr <- dados_capm %>%
+  mutate(
+    # Prêmios de Risco do Mercado (X)
+    premio_mercado = mkt - riskfree,
+
+    # Prêmios de Risco dos Ativos (Y)
+    premio_ge    = ge - riskfree,
+    premio_ibm   = ibm - riskfree,
+    premio_ford  = ford - riskfree,
+    premio_msft  = msft - riskfree,
+    premio_dis   = dis - riskfree,
+    premio_xom   = xom - riskfree
+  )
+
+# Estimação do Modelo CAPM para Cada Empresa
+# Modelo Econométrico: premio_ativo = alpha + beta * premio_mercado + e 
+
+modelo_ge   <- lm(premio_ge ~ premio_mercado, data = dados_capm_pr)
+modelo_ibm  <- lm(premio_ibm ~ premio_mercado, data = dados_capm_pr)
+modelo_ford <- lm(premio_ford ~ premio_mercado, data = dados_capm_pr)
+modelo_msft <- lm(premio_msft ~ premio_mercado, data = dados_capm_pr)
+modelo_dis  <- lm(premio_dis ~ premio_mercado, data = dados_capm_pr)
+modelo_xom  <- lm(premio_xom ~ premio_mercado, data = dados_capm_pr)
+
+# Função Auxiliar para Extrair o Beta
+# Esta função recebe um objeto lm (modelo) e retorna uma linha com os resultados do Beta.
+extrair_beta <- function(modelo, nome_empresa) {
+  # Usar summary() e coef() para extrair a tabela de coeficientes
+  resumo <- summary(modelo)
+  tabela_coefs <- as.data.frame(resumo$coefficients)
+  
+  # O Beta (sensibilidade ao mercado) é o coeficiente da variável 'premio_mercado'
+  beta_row <- tabela_coefs["premio_mercado", ]
+  
+  # Criar um data frame com os resultados relevantes
+  data.frame(
+    Empresa = nome_empresa,
+    Beta_Estimado = as.numeric(beta_row["Estimate"] ),
+    Erro_Padrao = as.numeric(beta_row["Std. Error"]),
+    Estat_t = as.numeric(beta_row["t value"]),
+    Valor_p = as.numeric(beta_row["Pr(>|t|)"])
+  )
+}
+
+# Extração e Comparação dos Betas
+# Lista de modelos e seus nomes
+lista_modelos <- list(
+  GE = modelo_ge, IBM = modelo_ibm, Ford = modelo_ford,
+  Microsoft = modelo_msft, Disney = modelo_dis, ExxonMobil = modelo_xom
+)
+
+# Aplicar a função extrair_beta a todos os modelos e combinar os resultados
+resultados_betas <- bind_rows(
+  extrair_beta(modelo_ge, "General Electric"),
+  extrair_beta(modelo_ibm, "IBM"),
+  extrair_beta(modelo_ford, "Ford"),
+  extrair_beta(modelo_msft, "Microsoft"),
+  extrair_beta(modelo_dis, "Disney"),
+  extrair_beta(modelo_xom, "Exxon-Mobil")
+)
+
+# Visualização dos resultados
+print(resultados_betas)
+
+# Análise de Volatilidade: Ação mais agressiva e mais defensiva
+# Ação Agressiva (Beta > 1): Maior Beta
+acao_agressiva <- resultados_betas %>%
+  arrange(desc(Beta_Estimado)) %>%
+  slice(1)
+
+# Ação Defensiva (Beta < 1): Menor Beta
+acao_defensiva <- resultados_betas %>%
+  arrange(Beta_Estimado) %>%
+  slice(1)
+
+cat("\n--- Classificação de Volatilidade Baseada na Estimatva Pontual ---\n")
+cat("Empresa Mais Agressiva (Maior Beta):", acao_agressiva$Empresa, "com Beta =", round(acao_agressiva$Beta_Estimado, 4), "\n")
+cat("Empresa Mais Defensiva (Menor Beta):", acao_defensiva$Empresa, "com Beta =", round(acao_defensiva$Beta_Estimado, 4), "\n")
+```
+
+Analisar apenas a estimativa pontual ($\hat{\beta}$) é insuficiente e arriscado 
+porque ela representa apenas o valor mais provável, mas não leva em conta a 
+incerteza estatística associada a essa estimativa.Em econometria e finanças, a 
+estimativa pontual é apenas um número extraído de uma amostra. O beta real 
+($\beta_{j}$) é um parâmetro populacional desconhecido. A incerteza é medida 
+pelo Erro-Padrão do estimador e incorporada nos Testes de Hipóteses (como o 
+teste t) ou na construção de Intervalos de Confiança.
+
+**C.** 
+
+
+
+```{r}
+
+# Análise do Teste H0: Intercepto = 0 para as empresas
+nivel_significancia <- 0.05 # 5%
+
+cat("\n--- Análise do Teste H0: Alpha = 0 (Nível de 5%) ---\n")
+
+# Função para extrair e analisar o intercepto
+analisar_alfa <- function(modelo, nome_empresa, alpha_level) {
+  resumo <- summary(modelo)
+  tabela_coefs <- as.data.frame(resumo$coefficients)
+  
+  # Extrair a linha do Intercepto
+  alfa_row <- tabela_coefs["(Intercept)", ]
+  alfa_estimado <- as.numeric(round(alfa_row["Estimate"], 6))
+  valor_p <- as.numeric(round(alfa_row["Pr(>|t|)"], 4))
+  
+  cat("\nEmpresa:", nome_empresa, "\n")
+  cat("  Estimativa do Alfa (Intercepto):", alfa_estimado, "\n")
+  cat("  Valor p do teste H0: alpha = 0:", valor_p, "\n")
+  
+  if (valor_p < alpha_level) {
+    cat(paste("  CONCLUSÃO: Rejeitamos H0, pois p-valor (", valor_p, ") < ", alpha_level, ". O Alfa é estatisticamente diferente de zero.\n", sep=""))
+  } else {
+    cat(paste("  CONCLUSÃO: NÃO Rejeitamos H0, pois p-valor (", valor_p, ") >= ", alpha_level, ". O Alfa é estatisticamente igual a zero (conforme o CAPM teórico).\n", sep=""))
+  }
+}
+
+# Executando a análise para as três empresas
+analisar_alfa(modelo_ford, "Ford", nivel_significancia)
+analisar_alfa(modelo_ge, "General Electric", nivel_significancia)
+analisar_alfa(modelo_xom, "Exxon-Mobil", nivel_significancia)
+```
+
+A partir dos dados analisados, como o valor $p$ é muito maior que 0.05 para as 
+três ações (Ford, General Eletric e Exxon-Mobil), então não rejeitamos $H_{0}$. 
+Concluímos que não há evidência estatística para que o intercepto da 
+Ford ($\alpha_{Ford}$), da General Eletric ($\alpha_{GE}$) e  da 
+Exxon-Mobil ($\alpha_{XOM}$) sejam diferentes de zero. O resultado está em 
+linha com a predição do CAPM teórico.
+
+
+**E.** 
+
+```{r}
+
+# Intervalo de Confiança para o Beta da Exxon-Mobil (XOM)
+ic_xom <- confint(modelo_xom, parm = "premio_mercado", level = 0.95)
+beta_xom_ponto <- as.numeric(coef(modelo_xom)["premio_mercado"])
+
+cat("\nExxon-Mobil (XOM):\n")
+cat("  Estimativa Pontual do Beta:", round(beta_xom_ponto, 4), "\n")
+cat("  IC 95% do Beta (Limite Inferior e Superior):\n")
+print(ic_xom)
+
+# Análise do IC da XOM
+limite_inferior_xom <- ic_xom[1, 1]
+limite_superior_xom <- ic_xom[1, 2]
+
+if (limite_superior_xom < 1) {
+  cat("  Conclusão Estatística: O valor 1 está FORA do IC. O Beta é estatisticamente MENOR que 1 (Defensiva).\n")
+} else if (limite_inferior_xom > 1) {
+  cat("  Conclusão Estatística: O valor 1 está FORA do IC. O Beta é estatisticamente MAIOR que 1 (Agressiva).\n")
+} else {
+  cat("  Conclusão Estatística: O valor 1 está DENTRO do IC. O Beta NÃO é estatisticamente diferente de 1 (Risco Neutro).\n")
+}
+
+# Intervalo de Confiança para o Beta da Microsoft (MSFT)
+ic_msft <- confint(modelo_msft, parm = "premio_mercado", level = 0.95)
+beta_msft_ponto <- coef(modelo_msft)["premio_mercado"]
+
+cat("\nMicrosoft (MSFT):\n")
+cat("  Estimativa Pontual do Beta:", round(beta_msft_ponto, 4), "\n")
+cat("  IC 95% do Beta (Limite Inferior e Superior):\n")
+print(ic_msft)
+
+# Análise do IC da MSFT
+limite_inferior_msft <- ic_msft[1, 1]
+limite_superior_msft <- ic_msft[1, 2]
+
+if (limite_superior_msft < 1) {
+  cat("  Conclusão Estatística: O valor 1 está FORA do IC. O Beta é estatisticamente MENOR que 1 (Defensiva).\n")
+} else if (limite_inferior_msft > 1) {
+  cat("  Conclusão Estatística: O valor 1 está FORA do IC. O Beta é estatisticamente MAIOR que 1 (Agressiva).\n")
+} else {
+  cat("  Conclusão Estatística: O valor 1 está DENTRO do IC. O Beta NÃO é estatisticamente diferente de 1 (Risco Neutro).\n")
+}
+```
+
+
+Com base na análise econométrica do CAPM, podemos classificar o risco de mercado
+das ações da Exxon-Mobil (XOM) e da Microsoft (MSFT) assim: 
+
+1. Exxon-Mobil (XOM) – Perfil Defensivo:
+
+O Beta estimado da XOM é de aproximadamente `r round(beta_xom_ponto, 4)`. 
+O Intervalo de Confiança de 95%  sugere que o Beta real está, com alta 
+probabilidade, entre `r round(limite_inferior_xom, 4)` e `r round(limite_superior_xom, 4)`.
+
+Recomendação: Se seu objetivo é proteger o capital em períodos de crise ou 
+buscar menor volatilidade, a Exxon-Mobil (XOM) é uma escolha adequada, pois seus
+retornos tendem a cair menos que o mercado em quedas generalizadas.
+
+2. Microsoft (MSFT) – Perfil Neutro:
+
+O Beta estimado da MSFT é de cerca de 
+`r round(beta_msft_ponto, 4)`. 
+O Intervalo de Confiança de 95% está entre entre `r round(limite_inferior_msft, 4)` e `r round(limite_superior_msft, 4)`.
+
+A Microsoft (MSFT) é classificada como uma ação Neutra em relação ao risco sistemático.
+
+Seu risco (Beta) é semelhante ao risco médio do mercado (S&P 500). 
+Isso significa que, em média, a Microsoft (MSFT) tende a subir e cair na mesma 
+proporção que o mercado. Ela não amplifica nem reduz significativamente o risco 
+sistemático total da sua carteira.
+
+**F.** 
+
+
+```{r}
+
+# Teste para a Ford
+cat("\nTeste para FORD: H0: Beta_Ford = 1\n")
+teste_ford <- linearHypothesis(modelo_ford, "premio_mercado = 1")
+print(teste_ford)
+
+# Interpretação da Ford
+p_valor_ford <- teste_ford$`Pr(>F)`[2]
+if (p_valor_ford < nivel_significancia) {
+  cat(paste("  CONCLUSÃO: Rejeitamos H0, pois p-valor (", round(p_valor_ford, 6), ") < ", nivel_significancia, ". O Beta da Ford é significativamente diferente de 1 (Agressiva).\n", sep=""))
+} else {
+  cat(paste("  CONCLUSÃO: NÃO Rejeitamos H0, pois p-valor (", round(p_valor_ford, 4), ") >= ", nivel_significancia, ". O Beta da Ford não é estatisticamente diferente de 1.\n", sep=""))
+}
+
+# Teste para a General Electric (GE)
+cat("\nTeste para GENERAL ELECTRIC (GE): H0: Beta_GE = 1\n")
+teste_ge <- linearHypothesis(modelo_ge, "premio_mercado = 1")
+print(teste_ge)
+
+# Interpretação da GE
+p_valor_ge <- teste_ge$`Pr(>F)`[2]
+if (p_valor_ge < nivel_significancia) {
+  cat(paste("  CONCLUSÃO: Rejeitamos H0, pois p-valor (", round(p_valor_ge, 4), ") < ", nivel_significancia, ". O Beta da GE é significativamente diferente de 1.\n", sep=""))
+} else {
+  cat(paste("  CONCLUSÃO: NÃO Rejeitamos H0, pois p-valor (", round(p_valor_ge, 4), ") >= ", nivel_significancia, ". O Beta da GE não é estatisticamente diferente de 1 (Risco Semelhante ao Mercado).\n", sep=""))
+}
+
+# Teste para a Exxon-Mobil (XOM)
+cat("\nTeste para EXXON-MOBIL (XOM): H0: Beta_XOM = 1\n")
+teste_xom <- linearHypothesis(modelo_xom, "premio_mercado = 1")
+print(teste_xom)
+
+# Interpretação da XOM
+p_valor_xom <- teste_xom$`Pr(>F)`[2]
+if (p_valor_xom < nivel_significancia) {
+  cat(paste("  CONCLUSÃO: Rejeitamos H0, pois p-valor (", round(p_valor_xom, 4), ") < ", nivel_significancia, ". O Beta da XOM é significativamente diferente de 1 (Defensiva).\n", sep=""))
+} else {
+  cat(paste("  CONCLUSÃO: NÃO Rejeitamos H0, pois p-valor (", round(p_valor_xom, 4), ") >= ", nivel_significancia, ". O Beta da XOM não é estatisticamente diferente de 1.\n", sep=""))
+}
+```
+
+Interpretação Econômica de $\beta = 1$
+
+Economicamente, um $\beta = 1$ significa que o prêmio de risco do ativo 
+($r_{j}-r_{f}$) varia na mesma proporção que o prêmio de risco do mercado 
+($r_{m}-r_{f}$).
+
+Risco Sistemático: O ativo possui o mesmo nível de risco sistemático (não 
+diversificável) que a carteira de mercado.
+
+Sensibilidade: O ativo é neutro em 
+relação à volatilidade do mercado. Se o mercado sobe $10\%$, espera-se que o 
+retorno excedente da ação também suba $10\%$.Investidor: Esse ativo não oferece 
+nem proteção (defensiva, $\beta<1$) nem alavancagem adicional 
+(agressiva, $\beta>1$) em relação aos movimentos do mercado.
+
+
+**G.**
+
+```{r}
+
+# Cálculo do Intervalo de Confiança de 95% para o Beta (prêmio_mercado)
+ic_xom <- confint(modelo_xom, parm = "premio_mercado", level = 0.95)
+beta_xom_ponto <- as.numeric(coef(modelo_xom)["premio_mercado"])
+
+cat("Estimativa Pontual do Beta (XOM):", round(beta_xom_ponto, 4), "\n")
+cat("IC 95% do Beta (XOM):\n")
+print(ic_xom)
+
+# Verificação se o valor 1 está contido no intervalo
+limite_inferior_xom <- ic_xom[1, 1]
+limite_superior_xom <- ic_xom[1, 2]
+
+cat("\nVerificação se o valor 1 está contido no IC:\n")
+if (limite_inferior_xom <= 1 && 1 <= limite_superior_xom) {
+  cat("  O valor 1 ESTÁ contido no IC [", round(limite_inferior_xom, 4), ", ", round(limite_superior_xom, 4), "].\n", sep="")
+  conclusao <- "aproximadamente igual a 1 (risco semelhante ao mercado)"
+} else {
+  cat("  O valor 1 NÃO está contido no IC [", round(limite_inferior_xom, 4), ", ", round(limite_superior_xom, 4), "].\n", sep="")
+  if (beta_xom_ponto < 1) {
+    conclusao <- "menor que 1 (ação defensiva)"
+  } else {
+    conclusao <- "maior que 1 (ação agressiva)"
+  }
+}
+
+# Discussão (Com base no código, o valor 1 não deve estar contido, pois IC superior < 1)
+cat("\nConclusão baseada no IC:\n")
+cat(paste("  Os dados sugerem que o beta da Exxon-Mobil é: ", conclusao, ".\n", sep=""))
+```
+
+
+1. Cálculo do Intervalo de Confiança de 95% para $\beta_{XOM}$:
+
+Usando a função `confint()` no R, as estimativas são:
+
+Estimativa Pontual ($\hat{\beta}_{XOM}$): `r round(beta_xom_ponto, 4)`
+
+IC de 95% para $\beta_{XOM}$: [`r round(limite_inferior_xom, 4)`, `r round(limite_superior_xom, 4)` ]
+
+2. Verificação: O valor 1 está contido no IC?
+
+O Intervalo de Confiança de 95% para o Beta da Exxon-Mobil é [`r round(limite_inferior_xom, 4)`, `r round(limite_superior_xom, 4)` ].
+
+O valor 1 (risco semelhante ao mercado) é maior que o limite superior do 
+intervalo (`r round(limite_superior_xom, 4)`).
+
+Conclusão: O valor $\mathbf{1}$ NÃO está contido no intervalo de confiança.
+
+3. Discussão sobre o Beta da Exxon-Mobil
+
+Como o valor 1 está fora do intervalo e a estimativa pontual ($\hat{\beta}_{XOM}$) = `r round(beta_xom_ponto, 4)` é menor que 1, temos evidência estatística forte, 
+ao nível de 5% de significância, para concluir que o Beta da Exxon-Mobil é 
+significativamente menor que 1.
+
+Portanto, os dados sugerem que o beta da Exxon-Mobil é menor que 1 (ação 
+defensiva).
+
+4. Interpretação Econômica de um Beta Menor que 1
+
+Risco Sistemático: Um $\beta < 1$ implica que a ação possui um risco sistemático
+inferior ao da carteira de mercado. O CAPM postula que, em equilíbrio, o retorno
+de um ativo é determinado apenas por seu risco sistemático (Beta).
+
+Sensibilidade às Oscilações do Mercado: A ação é menos sensível (mais defensiva)
+aos movimentos do mercado. Se o prêmio de risco de mercado cai $10\%$, o prêmio 
+de risco da XOM tende a cair apenas `r round(beta_xom_ponto*100, 2)`$\%$ (com 
+base no ($\hat{\beta}_{XOM}$) = `r round(beta_xom_ponto, 4)`.
+
+Implicação para o Investidor: A XOM é um ativo preferível para investidores que 
+buscam proteção em portfólios durante períodos de baixa do mercado (crises), 
+pois tende a ter perdas proporcionalmente menores que o índice de mercado. 
+Em contrapartida, em períodos de alta do mercado, seus ganhos serão menores.
+
+
+**H.** 
+
+```{r}
+
+# Cálculo do Intervalo de Confiança de 95% para o Beta (prêmio_mercado)
+ic_msft <- confint(modelo_msft, parm = "premio_mercado", level = 0.95)
+beta_msft_ponto <- as.numeric(coef(modelo_msft)["premio_mercado"])
+
+cat("Estimativa Pontual do Beta (MSFT):", round(beta_msft_ponto, 4), "\n")
+cat("IC 95% do Beta (MSFT):\n")
+print(ic_msft)
+
+# Verificação se o valor 1 está contido no intervalo e avaliação do risco
+limite_inferior_msft <- ic_msft[1, 1]
+limite_superior_msft <- ic_msft[1, 2]
+
+cat("\nVerificação se o valor 1 está contido no IC:\n")
+if (limite_inferior_msft <= 1 && 1 <= limite_superior_msft) {
+  cat("  O valor 1 ESTÁ contido no IC [", round(limite_inferior_msft, 4), ", ", round(limite_superior_msft, 4), "].\n", sep="")
+  conclusao <- "aproximadamente igual a 1 (risco semelhante ao mercado)"
+} else {
+  cat("  O valor 1 NÃO está contido no IC [", round(limite_inferior_msft, 4), ", ", round(limite_superior_msft, 4), "].\n", sep="")
+  if (beta_msft_ponto < 1) {
+    conclusao <- "menor que 1 (ação defensiva)"
+  } else {
+    conclusao <- "maior que 1 (ação agressiva)"
+  }
+}
+
+# Discussão (Com base no código, o valor 1 não deve estar contido, pois IC superior < 1)
+cat("\nConclusão baseada no IC:\n")
+cat(paste("  Os dados sugerem que o beta da Microsoft é: ", conclusao, ".\n", sep=""))
+```
+
+1. Cálculo do Intervalo de Confiança de 95% para $\beta_{MSFT}$:
+
+Usando a função `confint()` no R, as estimativas são:
+
+Estimativa Pontual ($\hat{\beta}_{MSFT}$): `r round(beta_msft_ponto, 4)`
+
+IC de 95% para $\beta_{MSFT}$: [`r round(limite_inferior_msft, 4)`, `r round(limite_superior_msft, 4)` ]
+
+2. Verificação: O valor 1 está contido no IC?
+
+O Intervalo de Confiança de 95% para o Beta da Microsoft é [`r round(limite_inferior_msft, 4)`, `r round(limite_superior_msft, 4)` ].
+
+O valor 1 (risco semelhante ao mercado) está dentro do 
+intervalo [`r round(limite_inferior_msft, 4)`, `r round(limite_superior_msft, 4)` ].
+
+Conclusão: O valor $\mathbf{1}$ está contido no intervalo de confiança, 
+NÃO REJEITAMOS a hipótese nula de que o Beta da Microsoft é igual a 1 ($H_0: \beta_{\text{MSFT}} = 1$).
+
+3. Discussão sobre o Beta da Microsoft
+
+Como o valor 1 está dentro do intervalo e a estimativa pontual ($\hat{\beta}_{MSFT}$) = `r round(beta_msft_ponto, 4)` é maior que 1, NÃO temos evidência estatística forte, 
+ao nível de 5% de significância, para concluir que o Beta da Microsoft é 
+significativamente menor que 1.
+
+Portanto, os dados sugerem que o beta da Microsoft é igual 1 (risco semelhante ao 
+mercado).
+
+4. Interpretação Econômica de um Beta Maior que 1
+
+Um beta $\beta > 1$ implica o seguinte sobre o risco da ação e sua resposta ao mercado: 
+
+Risco Sistemático: A ação possui um risco sistemático superior ao da carteira de mercado. Isso significa que, em teoria, ela deve gerar um retorno esperado (prêmio de risco) maior que o do mercado para compensar o investidor por essa maior exposição ao risco não diversificável.
+
+Sensibilidade às Oscilações do Mercado: Ações de empresas com $\beta > 1$ são 
+ações agressivas, pois são mais sensíveis e reagem de forma amplificada às 
+flutuações do mercado. Se o prêmio de risco de mercado (carteira $r_{m}-r_{f}$) 
+subir $1\%$, o prêmio de risco dessas empresas tendem a subir  (baseado na 
+estimativa pontual). Da mesma forma, em quedas do mercado, elas tendem a 
+registrar perdas proporcionalmente maiores.
+
+**I.** 
+
+```{r}
+
+# Extração do R-quadrado Ajustado 
+resumo_ford <- summary(modelo_ford)
+r_quadrado_ajustado_ford <- resumo_ford$adj.r.squared
+
+cat("\nEmpresa: Ford Motor Company (FORD)\n")
+cat("  R-quadrado Ajustado:", round(r_quadrado_ajustado_ford, 4), "\n")
+cat(paste("  Interpretação: ", round(r_quadrado_ajustado_ford * 100, 2), "% da variação do prêmio de risco da Ford é explicada pelo mercado. O restante é o risco idiossincrático (não diversificável).\n", sep=""))
+```
+
+
+1. Interpretação do $R^{2}$-Ajustado para a Ford
+O $R^{2}$-Ajustado ($\bar{R}^2$) é uma métrica que indica a proporção da 
+variância total da variável dependente (Prêmio de Risco da Ford) que é 
+explicada pelo modelo (Prêmio de Risco do Mercado), corrigida pelos graus de 
+liberdade.
+Ao estimar o modelo para a Ford, o resultado é:
+
+$R^{2}$-Ajustado (Ford) = `r round(r_quadrado_ajustado_ford, 4)`
+
+Interpretação:
+
+Poder Explicativo: O $R^{2}$-Ajustado de `r round(r_quadrado_ajustado_ford, 4)`
+significa que aproximadamente `r round(r_quadrado_ajustado_ford*100, 2)`$\%$ da 
+variação total no prêmio de risco mensal das ações da Ford é explicada pelo 
+prêmio de risco do mercado (variável explicativa do CAPM).
+
+Risco Não Explicado: Os restantes `r 100-round(r_quadrado_ajustado_ford*100, 2)`$\%$
+da variação são atribuídos ao risco idiossincrático ou risco específico da 
+empresa, que são capturados pelo termo de erro ($e_{j}$) do modelo.
+Essa baixa magnitude é típica para regressões de retornos de ações individuais, 
+indicando que a maior parte da volatilidade da Ford é devida a fatores 
+específicos da empresa, e não aos movimentos gerais do S&P 500 
+(carteira de mercado).
+
+2. Discussão: Por que o $R^{2}$-Ajustado é mais adequado?
+O $R^2$ simples e o $R^2$ ajustado são calculados de forma diferente:
+
+$R^2$ Simples:
+$$R^{2}=1 - \frac{SQ R}{SQ T}$$
+
+O $R^2$ simples sempre aumenta quando uma nova variável explicativa é adicionada
+ao modelo, mesmo que essa variável seja irrelevante. Isso ocorre porque a soma 
+dos quadrados dos resíduos ($SQR$) nunca aumenta, e a soma dos quadrados total 
+($SQT$) é fixa.
+
+$R^2$ Ajustado ($\bar{R}^2$):
+$$\bar{R}^{2}=1 - \frac{SQ R/(n-k)}{SQ T/(n-1)}$$
+
+O $R^2$ Ajustado corrige o $R^2$ simples penalizando a inclusão de variáveis 
+explicativas desnecessárias. Ele ajusta tanto o numerador quanto o denominador
+pelos seus respectivos graus de liberdade ($n-k$ e $n-1$, onde $k$ é o número 
+de parâmetros estimados, incluindo o intercepto). 
+
+Razões para ser mais adequado:
+Comparação entre Modelos: O $\bar{R}^2$ permite uma comparação justa entre 
+modelos com um número diferente de variáveis explicativas ($k$). Ao penalizar 
+modelos mais complexos que não trazem poder explicativo substancial, ele ajuda 
+a selecionar o modelo mais parcimonioso e com melhor ajuste.
+
+Critério de Seleção: Se uma nova variável for irrelevante (seus ganhos na
+redução do $SQR$ não compensam a perda de um grau de liberdade), o $\bar{R}^2$
+pode diminuir, diferentemente do $R^2$ simples.
+Valor Negativo: Ao contrário do $R^2$ simples (que é sempre entre 0 e 1), 
+o $\bar{R}^2$ pode ser negativo se o modelo for muito fraco, indicando que 
+a média amostral explica a variável dependente melhor do que o próprio modelo 
+de regressão.Em resumo, o $\bar{R}^2$ é uma medida superior do poder explicativo
+em Econometria, pois equilibra o ganho no ajuste do modelo contra a penalidade 
+de sua complexidade (número de regressores).
+
+**J**
+
+
+```{r}
+
+nivel_significancia <- 0.05
+
+# Execução do Teste RESET 
+# A H0: O modelo não tem má especificação de forma funcional.
+teste_reset_ford <- resettest(modelo_ford, power = 2:3, type = "f")
+cat("\nResultado do Teste RESET para o CAPM da Ford:\n")
+print(teste_reset_ford)
+
+# Interpretação do Teste RESET
+p_valor_reset <- teste_reset_ford$p.value
+if (p_valor_reset < nivel_significancia) {
+  cat(paste("\nInterpretação Estatística: Rejeitamos H0, pois p-valor (", round(p_valor_reset, 4), ") < ", nivel_significancia, ". Há evidência de má especificação funcional no modelo CAPM da Ford.\n", sep=""))
+} else {
+  cat(paste("\nInterpretação Estatística: NÃO Rejeitamos H0, pois p-valor (", round(p_valor_reset, 4), ") >= ", nivel_significancia, ". Não há evidência de má especificação funcional no modelo CAPM da Ford.\n", sep=""))
+}
+
+# Geração e Análise do Gráfico de Resíduos vs. Valores Previstos
+cat("\n--- Gráfico de Diagnóstico: Resíduos vs. Valores Previstos ---\n")
+
+
+
+# Criar data frame com resíduos e valores ajustados
+df_diag <- data.frame(
+  fitted = fitted(modelo_ford),
+  residuals = residuals(modelo_ford)
+)
+
+
+
+# Usando ggplot2 
+  grafico_residuos <- ggplot(df_diag, aes(x = fitted, y = residuals)) +
+    geom_point(alpha = 0.6) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+    geom_smooth(method = "loess", se = FALSE, color = "blue", linetype = "dotted") + # Linha suavizada para ver o padrão
+    labs(
+      title = "Resíduos do CAPM da Ford vs. Valores Previstos",
+      x = "Valores Previstos (Prêmio de Risco)",
+      y = "Resíduos"
+    ) +
+    theme_minimal()
+  print(grafico_residuos)
+  
+cat("\nAnálise Gráfica: Se o gráfico mostrar um padrão curvilíneo (linha pontilhada distante de zero) ou um formato de funil (dispersão crescente), isso sugere a má especificação detectada pelo teste RESET.\n")
+
+# gráfico dos resíduos versus os valores ajusteados 
+# para o modelo capm estimado para a Ford 
+plot(modelo_ford, which = 1)
+```
+
+
+O Teste RESET (Regression Equation Specification Error Test) de Ramsey é um 
+teste geral que verifica se a forma funcional linear do modelo de regressão é 
+adequada. A falha no teste geralmente indica a omissão de variáveis relevantes 
+ou a omissão de termos não lineares da variável explicativa.O modelo testado é 
+o CAPM da Ford:
+$$r_{ford}-r_{f}=\alpha_{ford}+\beta_{ford}(r_{m}-r_{f})+e_{ford}$$
+
+1. Avaliação do Teste RESET ($\alpha=0.05$)
+
+O teste RESET testa a hipótese nula de que o modelo linear é corretamente 
+especificado (ou seja, os coeficientes das potências dos valores ajustados são 
+zero) versus a alternativa de que o modelo está mal especificado.
+
+Hipótese Nula ($H_{0}$): O modelo CAPM linear está corretamente especificado 
+(a forma funcional é linear).
+
+Hipótese Alternativa ($H_{1}$): O modelo CAPM está mal especificado (por 
+exemplo, termos não lineares de $(r_{m}-r_{f})$ são relevantes).
+
+Assumindo o uso da função `resettest()` com, por exemplo, dois termos adicionais 
+(potências quadradas e cúbicas dos valores ajustados) no modelo da Ford, 
+os resultados seriam:
+
+Estatística F: `r round(teste_reset_ford$statistic, 4)`
+
+Graus de Liberdade (df1, df2): `r teste_reset_ford$parameter[1]`, `r teste_reset_ford$parameter[2]` 
+
+Valor $p$: `r sprintf("%.4e",teste_reset_ford$p.value)`
+
+Interpretação do Resultado do Teste:
+
+O Valor $p$ (`r sprintf("%.4e",teste_reset_ford$p.value)`) é menor que o nível de 
+significância de 5% ($\alpha=0.05$).
+
+Conclusão: Rejeitamos a Hipótese Nula ($H_{0}$).
+
+Discussão sobre Má Especificação:A rejeição de $H_{0}$ indica que há evidência 
+estatística de má especificação no modelo CAPM linear para a Ford. 
+
+Isso sugere que:
+
+a. A Forma Funcional Linear é Inadequada: A relação entre o prêmio de risco da 
+Ford e o prêmio de risco do mercado pode ser não linear. Por exemplo, a 
+sensibilidade ($\beta$) pode ser maior ou menor dependendo da magnitude do 
+prêmio de risco de mercado.
+
+b. Omissão de Variáveis: O modelo pode estar sofrendo de viés de variável 
+omitida, onde outros fatores relevantes (como tamanho da empresa, valor 
+contábil/mercado, momentum ou assimetrias na volatilidade) que não são lineares
+no prêmio de risco de mercado foram excluídos.
+
+Em resumo, o teste RESET sugere que o modelo linear $r_{j}-r_{f}=\alpha_{j}+\beta_{j}(r_{m}-r_{f})+e_{j}$ não captura totalmente a 
+relação média entre as variáveis, e que o modelo precisa de ajustes (como 
+incluir termos não lineares ou variáveis adicionais) para ser mais adequado.
+
+2. Gráfico dos Resíduos vs. Valores Previstos (Ajustados)
+
+O gráfico de diagnóstico de resíduos do modelo contra os valores ajustados é a 
+ferramenta visual mais fundamental para identificar problemas de má 
+especificação, como a não linearidade.
+
+Eixo X: Valores Previstos ($\hat{Y} = \widehat{r_{ford}-r_{f}}$)
+
+Eixo Y: Resíduos ($e_{ford}$)
+
+Análise do Gráfico:
+Em um modelo bem especificado, os resíduos devem estar distribuídos 
+aleatoriamente em torno da linha zero (eixo X), sem nenhum padrão discernível.
+No caso do CAPM para a Ford, se o teste RESET rejeitou $H_{0}$, o gráfico 
+tenderá a mostrar:
+
+a. Padrão Curvilíneo: Pode haver uma leve curvatura (exemplo: em forma de "U" 
+ou "U" invertido) na distribuição média dos resíduos. Essa curvatura indica que 
+o modelo linear superestima ou subestima sistematicamente os retornos para 
+certos níveis de prêmio de risco de mercado (valores previstos). Essa é a 
+indicação gráfica de que um termo quadrático ou cúbico (o que o RESET testa) 
+poderia ser necessário.
+
+b. Heterocedasticidade: Embora este gráfico seja usado para testar a forma 
+funcional, é comum nos modelos financeiros observar um padrão em formato de 
+cone ou funil (a dispersão dos resíduos aumenta com os valores previstos). A
+heterocedasticidade não falsifica a forma funcional linear em si, mas sugere 
+que a variância do erro não é constante, o que pode ser uma manifestação de má 
+especificação.
+
+Conclusão Gráfica:Se o gráfico mostrar um padrão não aleatório (como uma curva 
+ou uma tendência na média), ele confirma visualmente a má especificação 
+detectada pelo teste RESET, reforçando a necessidade de revisar a forma 
+funcional do modelo.
+
+
+
+**L**
+
+
+```{r}
+
+nivel_significancia <- 0.05
+
+# Execução do Teste de White
+# H0: Homocedasticidade
+cat("\nResultado do Teste de White (Verificação de Homocedasticidade):\n")
+# Assume-se que 'teste_white' e 'modelo_ford' existem no ambiente
+teste_white <- white_test(modelo_ford) # Comando real (se o pacote whitestrap estiver carregado)
+print(teste_white)
+
+p_valor_white <- teste_white$p_value
+if (p_valor_white < nivel_significancia) {
+  cat(paste("\nConclusão do Teste: Rejeitamos H0 (p-valor = ", sprintf("%.4e",p_valor_white), " < ", nivel_significancia, "). O modelo apresenta heterocedasticidade.\n", sep=""))
+} else {
+  cat(paste("\nConclusão do Teste: NÃO Rejeitamos H0 (p-valor = ", sprintf("%.4e",p_valor_white), " >= ", nivel_significancia, "). O modelo é homocedástico.\n", sep=""))
+}
+
+# Implementação da Solução: Erros-Padrão Robustos (HCSE)
+# Utiliza a função vcovHC() do pacote 'sandwich' (solução solicitada)
+vcov_robusta <- vcovHC(modelo_ford, type = "HC3")
+
+# Obtenção e Comparação dos Resultados
+# Resultados Originais (Não Robustos)
+resultados_originais_ford <- coeftest(modelo_ford)
+# Resultados Corrigidos (Robustos HC3)
+resultados_robust_ford <- coeftest(modelo_ford, vcov = vcov_robusta)
+
+# Extrair e comparar os resultados do Beta (premio_mercado) - Tabela para Análise
+beta_original <- resultados_originais_ford["premio_mercado", ]
+beta_robusto <- resultados_robust_ford["premio_mercado", ]
+
+comparacao_beta <- data.frame(
+  Estimativa = c(round(beta_original["Estimate"], 4), round(beta_robusto["Estimate"], 4)),
+  Erro_Padrao = c(round(beta_original["Std. Error"], 4), round(beta_robusto["Std. Error"], 4)),
+  Estat_t = c(round(beta_original["t value"], 3), round(beta_robusto["t value"], 3)),
+  Valor_p = c(format.pval(beta_original["Pr(>|t|)"], digits = 4), format.pval(beta_robusto["Pr(>|t|)"], digits = 4)),
+  row.names = c("Original (MQO)", "Robusto (HC3)")
+)
+
+cat("\n--- Comparação da Inferência para o Beta da Ford (H0: Beta = 0) ---\n")
+print(comparacao_beta)
+
+cat("\nAnálise da Mudança: A diferença entre os Erros-Padrão revela a magnitude da subestimação causada pela Heterocedasticidade.\n")
+
+```
+
+
+1. Teste de White para Homocedasticidade
+
+O Teste de White é usado para verificar a hipótese nula de que os resíduos do 
+modelo CAPM para a Ford possuem variância constante (Homocedasticidade).
+
+Hipótese Nula ($H_{0}$): $Var(e_{ford} | r_{m}-r_{f}) = \sigma^2$ 
+(Homocedasticidade).
+
+Hipótese Alternativa ($H_{1}$): A variância dos resíduos não é constante 
+(Heterocedasticidade).
+
+Resultados Obtidos (Ford):
+
+Estatística de Teste: `r round(teste_white$w_stat, 4)`
+
+Valor $p$: `r sprintf("%.4e",teste_white$p_value)` 
+
+
+Conclusão Estatística
+
+O Valor $p$ = `r sprintf("%.4e",teste_white$p_value)` é extremamente menor que o
+nível de significância de 5% ($\alpha=0.05$).
+
+Portanto, rejeitamos a Hipótese Nula ($H_{0}$). Concluímos que há evidência 
+estatística forte de que os resíduos do modelo CAPM para a Ford são 
+heterocedásticos (ou seja, a variância do erro não é constante).
+
+2. Implicação da Heterocedasticidade
+
+A detecção de heterocedasticidade tem as seguintes implicações:
+
+a. Estimadores (Coeficientes $\alpha$ e $\beta$): Os estimadores de Mínimos 
+Quadrados Ordinários (MQO) ($\hat{\alpha}$ e $\hat{\beta}$) permanecem não 
+viesados e consistentes. As estimativas pontuais 
+de `r round(resultados_originais_ford[1], 4)` (Alfa) 
+e `r round(resultados_originais_ford[2], 4)` (Beta) são válidas.
+
+Inferência Estatística: Os erros-padrão originais são viesados e inconsistentes,
+o que significa que os testes $t$ e os intervalos de confiança calculados antes 
+da correção eram não confiáveis.
+
+Evidência da Subestimação
+
+A comparação entre os erros-padrão robustos e originais confirma o problema.
+
+Coeficiente Beta (Prêmio do Mercado)
+
+Erro-Padrão Original: `r round(resultados_originais_ford[4], 4)`
+
+Erro-Padrão Robusto (HC3): `r round(resultados_robust_ford[4], 4)`
+
+Estatística $t$ Original: `r round(resultados_originais_ford[6], 4)`
+
+Estatística $t$ Robusto (HC3): `r round(resultados_robust_ford[6], 4)`
+
+O erro-padrão do Beta aumentou de `r round(resultados_originais_ford[4], 4)` 
+para `r round(resultados_robust_ford[4], 4)`. Este aumento drástico demonstra 
+que o erro-padrão original estava subestimado, superestimando a significância 
+estatística (o valor $t$ caiu de `r round(resultados_originais_ford[6], 4)` 
+para `r round(resultados_robust_ford[6], 4)`).
+
+
+3. Solução Adotada e Implementação (Erros-Padrão Robustos)
+
+A solução padrão para a heterocedasticidade é utilizar Erros-Padrão Robustos à Heterocedasticidade (Heteroskedasticity-Consistent Standard Errors - HCSE), 
+também conhecidos como Erros-Padrão de White.
+
+Esta técnica, implementada com o tipo `HC3`, não altera as estimativas pontuais 
+de $\hat{\alpha}$ e $\hat{\beta}$, mas corrige os erros-padrão, tornando a 
+inferência estatística válida e precisa novamente, mesmo na presença de 
+heterocedasticidade. O Beta da Ford, mesmo após a correção, permanece altamente 
+significativo (p-valor robusto de `r sprintf("%.4e", resultados_robust_ford[8])`).
+
+
+
+**M.** 
+
+```{r}
+residuos_ford <- residuals(modelo_ford)
+nivel_significancia <- 0.05
+
+# Gráfico Quantil-Quantil Normal (Q-Q Plot) usando ggplot2
+cat("\nGráfico Quantil-Quantil Normal (Q-Q Plot)\n")
+df_residuos <- data.frame(residuos = residuos_ford)
+
+grafico_qq <- ggplot(df_residuos, aes(sample = residuos)) +
+  stat_qq() +
+  stat_qq_line(color = "red") +
+  labs(
+    title = "Q-Q Plot dos Resíduos do CAPM da Ford",
+    x = "Quantis Teóricos (Distribuição Normal)",
+    y = "Quantis Amostrais (Resíduos)"
+  ) +
+  theme_minimal()
+print(grafico_qq)
+
+# Teste de Shapiro-Wilk
+cat("\nTeste de Shapiro-Wilk\n")
+teste_sw <- shapiro.test(residuos_ford)
+print(teste_sw)
+
+p_valor_sw <- teste_sw$p.value
+
+cat("\nAnálise do Teste de Shapiro-Wilk:\n")
+if (p_valor_sw < nivel_significancia) {
+  cat(paste("Conclusão: Rejeitamos H0, pois p-valor (", sprintf("%.4e",p_valor_sw), ") < ", nivel_significancia, ". Os resíduos NÃO seguem uma distribuição normal (indicativo de caudas pesadas).\n", sep=""))
+} else {
+  cat(paste("Conclusão: NÃO Rejeitamos H0, pois p-valor (", sprintf("%.4e",p_valor_sw), ") >= ", nivel_significancia, ". A hipótese de normalidade é plausível.\n", sep=""))
+}
+
+
+```
+
+Avaliação da Normalidade dos Resíduos (Ford)
+
+Gráfico Quantil-Quantil Normal (Q-Q Plot)
+
+O Q-Q Plot é a principal ferramenta visual para inspecionar a normalidade.
+
+Análise Visual: A inspeção do Q-Q Plot deve revelar um desvio notável dos pontos
+nas caudas (extremidades) em relação à linha de referência.
+
+Conclusão Visual: Esse padrão confirma a presença de caudas pesadas 
+(leptocurtose), um fenômeno comum em retornos financeiros, indicando mais 
+valores extremos (risco) do que o previsto por uma distribuição gaussiana 
+(normal).
+
+Teste de Shapiro-Wilk
+
+O Teste de Shapiro-Wilk formaliza a análise visual. A Hipótese Nula ($H_0$) é 
+que os resíduos seguem uma distribuição normal.
+
+Hipótese Nula ($H_{0}$): Os resíduos seguem uma distribuição normal.
+
+Hipótese Alternativa ($H_{1}$): Os resíduos não seguem uma distribuição normal.
+
+Resultado Obtido:
+
+Estatística W: `r round(teste_sw$statistic, 4)`
+
+Valor $p$: `r sprintf("%.4e", teste_sw$p.value)` 
+
+Conclusão Estatística
+
+O Valor $p$ `r sprintf("%.4e", teste_sw$p.value)` é extremamente menor que o 
+nível de significância de 5% ($\alpha=0.05$). 
+Portanto, rejeitamos a Hipótese Nula ($H_{0}$). Conclui-se que há evidência estatística robusta de que os resíduos do modelo CAPM para a Ford não são normalmente distribuídos.
+
+Implicações dos Desvios de Normalidade para a Inferência
+
+Apesar da forte rejeição da normalidade, a implicação para a inferência no 
+modelo CAPM é mitigada, especialmente após a correção da heterocedasticidade:
+
+a. Validade dos Testes $\boldsymbol{t}$ (TLC): O desvio da normalidade não invalida os testes $t$ e a construção dos intervalos de confiança. O Teorema do Limite Central (TLC) assegura que, em amostras grandes (como $N=180$ observações), a distribuição amostral dos estimadores ($\hat{\alpha}$ e $\hat{\beta}$) converge para a distribuição normal. Assim, a inferência estatística sobre a significância do Beta é considerada válida.
+
+b. Eficiência dos Estimadores: O principal impacto do desvio da normalidade é 
+que os estimadores de Mínimos Quadrados Ordinários (MQO) perdem a propriedade 
+de serem os Melhores Estimadores Lineares Não Viesados (MELNV). Eles continuam 
+sendo consistentes, mas não são mais os mais eficientes.
+
+c. Contexto Geral: Em econometria financeira, a preocupação maior é a 
+heterocedasticidade. Uma vez que os erros-padrão foram corrigidos 
+(Erros-Padrão Robustos), a inferência é considerada robusta, mesmo com a 
+não-normalidade dos resíduos.
+
+
+# Questão 2
+
+**A.** 
+
+O cenário proposto – a medição com erro dos retornos de mercado ($r_{m}$) e da 
+taxa livre de risco ($r_{f}$), resultando em um erro na variável explicativa 
+$X = (r_{m}-r_{f})$ – configura um problema de Erro de Mensuração (EIV).
+
+Quando o erro de mensuração afeta a variável explicativa, o estimador de 
+Mínimos Quadrados Ordinários (MQO) para o Beta ($\hat{\beta}_{\text{MQO}}$) 
+perde propriedades estatísticas cruciais.
+
+O estimador $\hat{\beta}_{\text{MQO}}$ é viesado.
+
+O viés surge porque o erro de mensuração na variável explicativa faz com que 
+essa variável se torne correlacionada com o termo de erro do modelo 
+econométrico. Essa correlação induzida viola a premissa de exogeneidade do MQO 
+($\text{Cov}(X, e) = 0$), resultando em um estimador viesado.
+
+O estimador $\hat{\beta}_{\text{MQO}}$ não é consistente.
+
+A inconsistência significa que, mesmo utilizando uma amostra infinitamente 
+grande, o estimador $\hat{\beta}_{\text{MQO}}$ não converge para o valor 
+verdadeiro do parâmetro $\beta$.
+
+O viés gerado pelo erro de mensuração na variável explicativa é conhecido 
+como Viés de Atenuação.
+
+O Viés de Atenuação implica que o estimador $\hat{\beta}_{\text{MQO}}$ será 
+viesado em direção a zero.
+
+Matematicamente, a relação entre o estimador e o valor verdadeiro ($\beta$) 
+é dada por:
+
+$$\text{plim}(\hat{\beta}_{\text{MQO}}) = \beta \cdot \left( \frac{\sigma_{X}^{2}}{\sigma_{X}^{2} + \sigma_{u}^{2}} \right)$$
+
+Onde:
+
+* $\text{plim}(\hat{\beta}_{\text{MQO}})$ é o limite de probabilidade (o valor 
+para o qual o estimador converge).
+
+* $\sigma_{X}^{2}$ é a variância da variável explicativa verdadeira.
+
+* $\sigma_{u}^{2}$ é a variância do erro de mensuração (assumido ser ruído
+branco).
+
+Como $\sigma_{u}^{2} > 0$, o termo em parênteses 
+($\frac{\sigma_{X}^{2}}{\sigma_{X}^{2} + \sigma_{u}^{2}}$) é sempre positivo e 
+menor que 1. 
+
+Consequentemente, o valor estimado converge para uma fração da 
+magnitude do $\beta$ verdadeiro.
+
+O $\beta$ verdadeiro da IBM provavelmente é maior que $0.9769$. O viés de 
+atenuação está subestimando a sensibilidade da ação ao mercado, tornando a ação 
+da IBM, por meio da estimativa de MQO, aparentemente menos sensível ao risco de 
+mercado do que ela é na realidade.
+
+A solução econométrica padrão para o Viés de Atenuação é a utilização de 
+Variáveis Instrumentais (VI), como a metodologia de Mínimos Quadrados em Dois 
+Estágios (2SLS).
+
+
+**B.** 
+
+```{r}
+# Estimação do Modelo CAPM para a Microsoft (msft)
+# Modelo: (r_msft - r_f) = alfa + Beta * (r_m - r_f) + erro
+
+modelo_msft_mql <- lm(I(msft - riskfree) ~ I(mkt - riskfree), data = capm5)
+
+# Visualização das estimativas pontuais
+resultados_msft <- summary(modelo_msft_mql)
+print(resultados_msft$coefficients)
+
+# Extração da estimativa pontual do Beta (coeficiente de I(mkt - riskfree))
+beta_msft_estimativa <- resultados_msft$coefficients["I(mkt - riskfree)", "Estimate"]
+cat(paste("\nEstimativa Pontual do Beta da Microsoft (MSFT):", round(beta_msft_estimativa, 4), "\n"))
+```
+
+
+Classificação da Ação e Análise da Estimativa Pontual
+
+Classificação: Com base na estimativa pontual, o Beta da Microsoft 
+($\hat{\beta}_{\text{MSFT}}$ = `r round(beta_msft_estimativa, 4)`) é maior 
+que 1. Isso classifica a ação da Microsoft como "Ação Agressiva" para o período de 1998 a 2012.
+
+Avaliação de Risco (Estimativa Pontual): A Microsoft parece ser relativamente 
+arriscada em relação à carteira de mercado.
+
+Interpretação Econômica:
+Um Beta maior que 1 significa que a ação é mais volátil do que o mercado acionário em geral.
+Especificamente, para cada 1% de variação no prêmio de risco do mercado 
+($r_{m}-r_{f}$), espera-se que o prêmio de risco da Microsoft 
+($r_{\text{msft}}-r_{f}$) varie `r round(beta_msft_estimativa, 4)`$\%$ na 
+mesma direção. Assim, em períodos de alta, a Microsoft tende a ter retornos 
+excedentes que superam o mercado.
+
+Observação Adicional (Significância): O Beta estimado é altamente significativo ($p\text{-valor}$ = `r sprintf("%.4e", resultados_msft$coefficients[8])` ), o 
+que indica que a sensibilidade da Microsoft ao risco de mercado é 
+estatisticamente diferente de zero, e a estimativa de 
+`r round(beta_msft_estimativa, 4)` é muito confiável.
+
+**C.** 
+
+```{r}
+
+# Criar a variável instrumental 'posicao'
+
+capm5_msft <- capm5 %>%
+  mutate(mkt_premium = I(mkt - riskfree)) %>%
+  arrange(mkt_premium) %>%
+  mutate(posicao = rank(mkt_premium))
+
+# Regressão do Primeiro Estágio (MQO)
+# Variável Endógena (mkt_premium) regressa no Instrumento (posicao)
+# Modelo: (r_m - r_f) = delta_0 + delta_1 * posicao + v
+modelo_primeiro_estagio <- lm(mkt_premium ~ posicao, data = capm5_msft)
+
+# Visualização e extração do resultado para o instrumento 'posicao'
+resultados_primeiro_estagio <- summary(modelo_primeiro_estagio)
+print(resultados_primeiro_estagio$coefficients)
+
+# Extração da estatística t e do p-valor para 'posicao'
+posicao_t_value <- resultados_primeiro_estagio$coefficients["posicao", "t value"]
+posicao_p_value <- resultados_primeiro_estagio$coefficients["posicao", "Pr(>|t|)"]
+cat(paste("\nEstatística t para posicao:", round(posicao_t_value, 2), "\n"))
+cat(paste("P-valor para posicao:", sprintf("%.4e",posicao_p_value), "\n"))
+```
+
+A Regressão de Primeiro Estágio é executada para testar a relevância do 
+instrumento `posicao` na predição do prêmio de risco de mercado ($r_{m}-r_{f}$).
+
+1. Resultados da Regressão do Primeiro Estágio
+
+O modelo estimado é o prêmio de risco de mercado em função da variável 
+instrumental `posicao`:
+$$(\widehat{r_{m}-r_{f}}) = \hat{\delta}_{0} + \hat{\delta}_{1} \cdot \text{posicao} + \hat{v}$$
+Os resultados obtidos para o coeficiente da variável instrumental `posicao` são:
+
+Estimativa $\hat{\delta}_{1}$: `r sprintf("%.7e",resultados_primeiro_estagio$coefficients[2])`
+
+Erro-Padrão: `r sprintf("%.7e",resultados_primeiro_estagio$coefficients[4])`
+
+Valor $t$:  `r round(resultados_primeiro_estagio$coefficients[6],2)`
+
+$P$-valor: `r sprintf("%.7e",resultados_primeiro_estagio$coefficients[8])`
+
+2. Análise da Relevância do Instrumento
+
+O teste de relevância se concentra na hipótese nula de que o instrumento não 
+tem poder preditivo sobre a variável endógena ($H_0: \delta_1 = 0$).
+
+a. Significância Estatística
+
+O $p$-valor associado ao coeficiente de `posicao` (`r sprintf("%.7e",resultados_primeiro_estagio$coefficients[8])`) é um valor extremamente pequeno, substancialmente menor que o nível de significância de 5% ($\alpha=0.05$).
+
+Conclusão: Rejeitamos a hipótese nula. O coeficiente de `posicao` é 
+estatisticamente significativo.
+
+b. Força do Instrumento
+
+O critério de instrumento forte (ou relevante) é tipicamente avaliado pelo 
+$t$-valor ou pela Estatística $F$ do primeiro estágio.
+
+O $t$-valor obtido de `r round(resultados_primeiro_estagio$coefficients[6],2)` 
+é massivamente maior do que o valor crítico para significância.
+
+Conclusão: A variável instrumental posicao é considerada um instrumento 
+extremamente forte (ou altamente relevante).
+
+
+**E.** 
+
+```{r}
+
+# Estimação do Modelo CAPM via 2SLS (VI)
+
+modelo_msft_2sls <- iv_robust(I(msft - riskfree) ~ I(mkt - riskfree) | posicao, data = capm5_msft)
+
+# Visualização e extração das estimativas
+resultados_msft_2sls <- summary(modelo_msft_2sls)
+print(resultados_msft_2sls$coefficients)
+
+# Extração da estimativa pontual do Beta 2SLS
+beta_msft_2sls <- resultados_msft_2sls$coefficients["I(mkt - riskfree)", "Estimate"]
+cat(paste("\nEstimativa Pontual do Beta da Microsoft (MSFT) via 2SLS:", round(beta_msft_2sls, 4), "\n"))
+```
+
+O Mínimos Quadrados em Dois Estágios (2SLS) foi utilizado com a variável 
+instrumental `posicao` para reestimar o modelo CAPM para a Microsoft. 
+O objetivo é obter um estimador do Beta que seja consistente, corrigindo o 
+problema de Endogeneidade/Viés de Atenuação.
+
+Resultados da Estimação 2SLS do Coeficiente Beta ($\hat{\beta}_{\text{2SLS}}$)
+
+Estimativa Pontual de $\hat{\beta}_{\text{2SLS}}$: `r round(resultados_msft_2sls$coefficients[2],4)`
+
+Erro-Padrão Robusto: `r round(resultados_msft_2sls$coefficients[4],4)`
+
+Valor $t$: `r round(resultados_msft_2sls$coefficients[6],2)`
+
+$P$-Valor: `r sprintf("%.7e",resultados_msft_2sls$coefficients[8])`
+
+IC 95% Inferior: `r round(resultados_msft_2sls$coefficients[10],4)` 
+
+IC 95% Superior: `r round(resultados_msft_2sls$coefficients[12],4)`
+
+Comparação com MQO e Conclusão
+
+Estimativa Pontual de Beta (MQO): ($\hat{\beta}_{\text{MQO}}$ = `r round(beta_msft_estimativa, 4)`) 
+
+Estimativa Pontual de Beta (2SLS): $\hat{\beta}_{\text{2SLS}}$ = `r round(resultados_msft_2sls$coefficients[2],4)`
+
+
+A estimativa pontual do Beta via VI está de acordo com sua previsão feita no 
+Item A?
+
+Previsão Teórica (Item A): O Erro de Mensuração na variável explicativa 
+(prêmio de risco de mercado) causa um Viés de Atenuação, que tende a puxar a 
+estimativa de MQO em direção a zero (subestimando a magnitude do Beta).
+
+Resultado Empírico: A estimativa corrigida por 2SLS 
+(`r round(resultados_msft_2sls$coefficients[2],4)`) é maior do que a estimativa 
+enviesada de MQO (`r round(beta_msft_estimativa, 4)`).
+
+Conclusão: Sim. O resultado está perfeitamente de acordo com a previsão teórica.
+O aumento na magnitude do Beta (de `r round(beta_msft_estimativa, 4)` para 
+`r round(resultados_msft_2sls$coefficients[2],4)`) após a aplicação do 
+2SLS demonstra que o viés de atenuação foi corrigido.
+
+O Beta consistente (`r round(resultados_msft_2sls$coefficients[2],4)`) indica 
+que a Microsoft é, na verdade, mais agressiva em relação ao risco de mercado 
+do que a estimativa inconsistente de MQO sugeria, reforçando a conclusão de que
+a MQO estava subestimando a verdadeira sensibilidade da ação ao mercado.
+
+**F.** 
+
+```{r}
+
+# Criar a variável instrumental 'positivo'
+# 1 se (r_m - r_f) > 0, 0 caso contrário
+capm5_msft <- capm5_msft %>%
+  mutate(positivo = ifelse(mkt_premium > 0, 1, 0))
+
+# Regressão do Primeiro Estágio (MQO)
+# Variável Endógena (mkt_premium) regressa em ambos os Instrumentos
+# Modelo: (r_m - r_f) = delta_0 + delta_1 * posicao + delta_2 * positivo + v
+modelo_primeiro_estagio_conjunto <- lm(mkt_premium ~ posicao + positivo, data = capm5_msft)
+
+# Teste de Significância Conjunta dos Instrumentos (Teste F para Relevância)
+# H0: delta_1 = 0 e delta_2 = 0 (os instrumentos não são relevantes)
+teste_relevancia_conjunta <- linearHypothesis(modelo_primeiro_estagio_conjunto, 
+                                              c("posicao = 0", "positivo = 0"))
+
+# Visualização do Teste F
+print(teste_relevancia_conjunta)
+
+# Extração da Estatística F e do P-valor
+f_statistic <- teste_relevancia_conjunta$F[2]
+p_value_f <- teste_relevancia_conjunta$"Pr(>F)"[2]
+cat(paste("\nEstatística F (Significância Conjunta):", round(f_statistic, 2), "\n"))
+cat(paste("P-valor (Teste F):", sprintf("%.4e",p_value_f), "\n"))
+```
+
+A Regressão de Primeiro Estágio testa a relevância conjunta dos instrumentos 
+`posicao` e `positivo` na explicação da variável endógena (prêmio de risco de 
+mercado).
+
+Hipótese Nula ($H_{0}$): $\delta_{\text{posicao}} = 0 \text{ e } \delta_{\text{positivo}} = 0$ (Os instrumentos são conjuntamente irrelevantes).
+
+Resultados do Teste de Significância ConjuntaO teste $F$ de significância 
+conjunta (via `linearHypothesis`) forneceu os seguintes resultados:
+
+Estatística $F$: `r round(f_statistic, 2)`
+
+$P$-Valor: `r sprintf("%.7e",p_value_f)`
+
+Conclusão da Relevância do Instrumento
+
+a. Teste Estatístico:
+
+O $P$-valor do teste $F$ (`r sprintf("%.7e",p_value_f)`) é virtualmente zero, 
+estando muito abaixo do nível de significância de 5% ($\alpha=0.05$).
+
+Decisão: Rejeitamos a Hipótese Nula ($H_0$).
+
+b. Força do Instrumento:O valor da estatística $F$ (`r round(f_statistic, 2)`) 
+é extremamente elevado. Em econometria, a regra prática sugere que um 
+instrumento é forte se $F > 10$. Seu resultado supera este limiar por uma 
+margem vasta.
+
+Resposta à Questão:
+
+Podemos concluir que estas variáveis instrumentais são adequadamente relevantes?
+
+Sim. O $P$-valor extremamente baixo e a Estatística $F$ massivamente alta provam que os instrumentos `posicao` e `positivo` têm um poder explicativo conjunto altamente 
+significativo sobre o prêmio de risco de mercado. Portanto, eles são 
+considerados adequadamente relevantes (ou "instrumentos fortes") e válidos para
+uso na estimação do modelo CAPM via 2SLS.
+
+**G.** 
+
+```{r}
+
+# Estimação do Modelo CAPM via 2SLS (VI) com DOIS Instrumentos
+# Sintaxe: (Dependente ~ Endógena | Instrumentos), data
+# Endógena: I(mkt - riskfree) | Instrumentos: posicao + positivo
+
+modelo_msft_2sls_multi <- iv_robust(I(msft - riskfree) ~ I(mkt - riskfree) | posicao + positivo, data = capm5_msft)
+
+# Visualização e extração das estimativas
+resultados_msft_2sls_multi <- summary(modelo_msft_2sls_multi)
+print(resultados_msft_2sls_multi$coefficients)
+
+# Extração da estimativa pontual do Beta 2SLS
+beta_msft_2sls_multi <- resultados_msft_2sls_multi$coefficients["I(mkt - riskfree)", "Estimate"]
+cat(paste("\nEstimativa Pontual do Beta da Microsoft (MSFT) via 2SLS (2 VI):", round(beta_msft_2sls_multi, 4), "\n"))
+```
+
+O modelo CAPM para a Microsoft foi reestimado utilizando o Mínimos Quadrados 
+em Dois Estágios (2SLS), empregando conjuntamente os instrumentos `posicao` e 
+`positivo` para corrigir a endogeneidade causada pelo erro de mensuração no 
+prêmio de risco de mercado.
+
+Resultados da Estimação 2SLS (2 Instrumentos)
+
+A estimação por 2SLS com dois instrumentos forneceu a seguinte estimativa para o Beta da Microsoft:
+
+a. Intercepto ($\alpha$)
+
+Estimativa de $\hat{\beta}_{\text{2SLS}}$: `r round(resultados_msft_2sls_multi$coefficients[1],4)`
+
+Erro-Padrão Robusto: `r round(resultados_msft_2sls_multi$coefficients[3],4)`
+
+Valor $t$: `r round(resultados_msft_2sls_multi$coefficients[5],2)`
+
+$P$-Valor: `r sprintf("%.7e",resultados_msft_2sls_multi$coefficients[7])` 
+
+b. Beta ($\hat{\beta}_{\text{2SLS}}$)
+
+Estimativa de $\hat{\beta}_{\text{2SLS}}$: `r round(resultados_msft_2sls_multi$coefficients[2],4)`
+
+Erro-Padrão Robusto: `r round(resultados_msft_2sls_multi$coefficients[4],4)`
+
+Valor $t$: `r round(resultados_msft_2sls_multi$coefficients[6],2)`
+
+$P$-Valor: `r sprintf("%.7e",resultados_msft_2sls_multi$coefficients[8])` 
+
+Estimativa Pontual do Beta da Microsoft (2SLS, 2 VI): `r round(beta_msft_2sls_multi, 4)`
+
+Estimativa Pontual do Beta da Microsoft (MQO): `r round(beta_msft_estimativa, 4)`
+
+
+A estimativa por VI está de acordo com suas expectativas?
+
+Expectativa: A teoria do Erro de Mensuração, (discutida no Item A) estabeleceu 
+que o estimador de MQO estaria sujeito ao Viés de Atenuação, resultando em uma 
+subestimação da magnitude do Beta (puxando-o em direção a zero)1. A expectativa 
+era que o estimador consistente 2SLS fosse maior do que o estimador de MQO.
+
+Resultado Empírico: A estimativa 2SLS (`r round(beta_msft_2sls_multi, 4)`) é 
+maior do que a estimativa MQO (`r round(beta_msft_estimativa, 4)`).
+
+Conclusão: Sim. O resultado está de acordo com as expectativas teóricas. 
+O aumento de `r round(beta_msft_estimativa, 4)` para `r round(beta_msft_2sls_multi, 4)`
+confirma que o 2SLS corrigiu o viés de atenuação. A estimativa corrigida é mais 
+precisa e consistente, confirmando que a ação da Microsoft é agressiva 
+($\hat{\beta} > 1$) e ligeiramente mais volátil em relação ao mercado do que 
+o MQO sugeria.
+
+**H.** 
+
+```{r}
+
+# Recuperar os resíduos do Primeiro Estágio (modelo com posicao e positivo)
+# Estes resíduos (v_hat) representam a parte do prêmio de risco de mercado 
+# que não é explicada pelos instrumentos.
+v_hat <- residuals(modelo_primeiro_estagio_conjunto)
+
+# Adicionar os resíduos (v_hat) ao data frame para a regressão auxiliar
+capm5_msft_teste <- capm5_msft %>%
+  mutate(v_hat = v_hat)
+
+# Regressão Auxiliar de Hausman (Teste de Endogeneidade)
+# Modelo: (r_msft - r_f) = alfa + Beta * (r_m - r_f) + gamma * v_hat + epsilon
+# O teste é equivalente a testar a H0: gamma = 0
+modelo_hausman_teste <- lm(I(msft - riskfree) ~ I(mkt - riskfree) + v_hat, data = capm5_msft_teste)
+
+# Visualização e extração do resultado para o resíduo do primeiro estágio (v_hat)
+resultados_hausman <- summary(modelo_hausman_teste)
+print(resultados_hausman$coefficients)
+
+# Extração da estatística t e do p-valor para v_hat
+v_hat_t_value <- resultados_hausman$coefficients["v_hat", "t value"]
+v_hat_p_value <- resultados_hausman$coefficients["v_hat", "Pr(>|t|)"]
+cat(paste("\nEstatística t para v_hat:", round(v_hat_t_value, 2), "\n"))
+cat(paste("P-valor para v_hat:", format.pval(v_hat_p_value, digits = 4), "\n"))
+```
+
+
+O Teste de Hausman de endogeneidade é crucial para verificar formalmente se a 
+variável explicativa (o prêmio de risco de mercado) no modelo CAPM é endógena, 
+validando a necessidade de usar o estimador 2SLS.
+
+A Hipótese Nula ($H_0$) do teste é que o estimador de MQO é consistente (ou 
+seja, a variável é exógena), e a Hipótese Alternativa ($H_1$) é que o estimador 
+de MQO é inconsistente (a variável é endógena).
+
+Resultados da Regressão Auxiliar de Hausman
+
+O teste é realizado adicionando o resíduo do primeiro estágio ($\hat{v}$) como 
+um regressor extra ao modelo de MQO. O foco é a significância do coeficiente de $\hat{v}$.
+
+a. $\text{I(mkt - riskfree)}$
+
+Estimativa: `r round(resultados_hausman$coefficients[2],4)`
+
+Erro-Padrão: `r round(resultados_hausman$coefficients[5],4)`
+
+Valor $t$: `r round(resultados_hausman$coefficients[8],2)`
+
+$P$-Valor: `r sprintf("%.4e",resultados_hausman$coefficients[11])` 
+
+b. $\hat{v}$ (Resíduo)
+
+Estimativa: `r round(resultados_hausman$coefficients[3],4)`
+
+Erro-Padrão: `r round(resultados_hausman$coefficients[6],4)`
+
+Valor $t$: `r round(resultados_hausman$coefficients[9],2)`
+
+$P$-Valor: `r round(resultados_hausman$coefficients[12],4)`
+
+Interpretação do Teste de Hausman
+
+a. Foco na Estatística do Resíduo ($\hat{v}$):
+
+O teste se concentra no coeficiente do resíduo do primeiro estágio ($\hat{v}$), 
+pois ele representa a correlação entre a variável explicativa (prêmio de risco 
+de mercado) e o erro do modelo, que é a definição de endogeneidade.
+
+b. Significância Estatística:
+
+O $p$-valor associado ao coeficiente de $\hat{v}$ é de `r round(resultados_hausman$coefficients[12],4)`. Este valor é menor que o nível 
+de significância de 5% ($\alpha=0.05$).
+
+Decisão: Rejeitamos a Hipótese Nula ($H_0$).
+
+c. Conclusão da Endogeneidade:
+
+A rejeição de $H_0$ implica que o coeficiente do resíduo é estatisticamente 
+diferente de zero. Isso significa que:
+
+1. A variável $\mathbf{I(\text{mkt} - \text{riskfree})}$ (prêmio de risco de 
+mercado) é endógena no modelo CAPM da Microsoft.
+
+2. O estimador de MQO obtido no Item B ($\hat{\beta}_{\text{MQO}}$ = `r round(beta_msft_estimativa, 4)`)  é inconsistente.
+
+O Teste de Hausman confirma formalmente a existência do problema de 
+endogeneidade previsto no Item A e justifica a utilização do método de 
+Variáveis Instrumentais (2SLS), que fornece um estimador consistente do Beta 
+(como o $\hat{\beta}_{\text{2SLS}}$ = `r round(beta_msft_2sls_multi, 4)`).
+
+
+**I.** 
+
+```{r}
+
+# Reestimação do Modelo CAPM via 2SLS 
+modelo_msft_2sls_multi <- iv_robust(I(msft - riskfree) ~ I(mkt - riskfree) | posicao + positivo, data = capm5_msft)
+
+# Obter o data frame FILTRADO (dados_usados) e os Fitted Values
+dados_usados <- model.frame(modelo_msft_2sls_multi)
+fitted_values_2sls <- fitted.values(modelo_msft_2sls_multi)
+
+# Calcular os Resíduos do 2SLS manualmente (contornando o erro de 'residuals' = NULL)
+# A variável dependente (Y) é a primeira coluna do data frame filtrado (dados_usados)
+y_dependente_filtrada <- dados_usados[[1]] # Acessa a primeira coluna, que é I(msft - riskfree)
+residuos_2sls_manual <- y_dependente_filtrada - fitted_values_2sls
+
+#Obter os índices das observações usadas no modelo
+indices_usados <- as.numeric(row.names(dados_usados))
+
+# Extrair e filtrar os vetores de instrumentos do data frame ORIGINAL capm5_msft
+# Isso garante que posicao_filtrada e positivo_filtrado tenham o mesmo comprimento que os resíduos
+posicao_filtrada <- capm5_msft$posicao[indices_usados]
+positivo_filtrado <- capm5_msft$positivo[indices_usados]
+
+# Criar um novo data frame limpo (O método mais seguro para lm())
+data_oir_final <- data.frame(
+    residuos = residuos_2sls_manual,
+    posicao = posicao_filtrada,
+    positivo = positivo_filtrado
+)
+
+# Regressão Auxiliar para o Teste OIR (Sargan)
+# Usamos o data frame limpo com os nomes de coluna simples.
+modelo_auxiliar_oir <- lm(residuos ~ posicao + positivo, data = data_oir_final)
+
+# Cálculo da Estatística do Teste OIR (Sargan)
+# Sargan = N * R²
+N <- nobs(modelo_auxiliar_oir) # Número de observações
+R_squared <- summary(modelo_auxiliar_oir)$r.squared
+oir_statistic <- N * R_squared
+
+# Cálculo do P-valor (Qui-Quadrado)
+# df = (número de instrumentos) - (número de variáveis endógenas) = 2 - 1 = 1
+df_oir <- 1 
+p_value_oir <- 1 - pchisq(oir_statistic, df = df_oir)
+
+# Exibir os resultados
+cat("\n--- Teste de Restrições Superidentificadoras (OIR - Sargan) ---\n")
+cat(paste("Estatística Sargan (N * R²):", round(oir_statistic, 4), "\n"))
+cat(paste("Graus de Liberdade (df):", df_oir, "\n"))
+cat(paste("P-valor (Teste Qui-Quadrado):", round(p_value_oir, digits = 4), "\n"))
+```
+
+O Teste de Restrições Superidentificadoras (OIR), ou Teste de Sargan/Hansen, é 
+fundamental para verificar a segunda condição de validade dos instrumentos: a 
+exogeneidade (não correlação com o erro). Ele é aplicável, pois o modelo CAPM 
+com os dois instrumentos (posicao e positivo) é superidentificado 
+($\text{M} = 2$ instrumentos $> \text{K} = 1$ variável endógena).
+
+Hipótese Nula ($H_{0}$): Todos os instrumentos são válidos (exógenos e não correlacionados com o erro do modelo estrutural).
+
+Resultados do Teste de Sargan
+
+O teste Qui-Quadrado de Sargan apresentou os seguintes resultados:
+
+Estatística Sargan: ($N \cdot R^2$): `r round(oir_statistic, 4)`
+
+Graus de Liberdade: `r df_oir`
+
+$P$-valor: `r round(p_value_oir, digits = 4)`
+
+Interpretação e Conclusão
+
+a. Teste Estatístico:O $P$-valor obtido de `r round(p_value_oir, digits = 4)` é significativamente maior que o nível de significância usual de 5% ($\alpha=0.05$).
+
+b. Decisão: NÃO rejeitamos a Hipótese Nula ($H_0$).
+
+c. Conclusão Final:A não rejeição de $H_0$ implica que não há evidência 
+estatística de que os instrumentos posicao e positivo sejam inválidos 
+(endógenos).Portanto, a estimativa do Beta da Microsoft 
+($\hat{\beta}_{\text{2SLS}}$ = `r round(beta_msft_2sls_multi, 4)`) é a 
+estimativa consistente e confiável para o risco sistemático da ação.
+
+
+# Questão 3
+
+
+**A.** 
+
+```{r}
+
+# Pipeline de Transformação e Limpeza
+hmda_clean <- Hdma %>%
+  # Criar a variável binária 'deny_num'
+  # '1L' e '0L' são usados para garantir o tipo inteiro (integer)
+  mutate(deny_num = if_else(deny == "yes", 1L, 0L)) %>% 
+  # Remover todas as observações com valores faltantes (NA)
+  drop_na()
+
+# Confirmar a estrutura final do data frame
+cat("Estrutura do data frame hmda_clean após as transformações:\n")
+glimpse(hmda_clean) 
+
+
+```
+
+
+
+**B.** 
+
+```{r}
+# Este script requer os pacotes 'marginaleffects' e 'dplyr'
+# library(marginaleffects) 
+# library(dplyr) 
+
+# Pressuposto: O data frame hmda_clean (com deny_num e sem NAs) foi criado no Item A.
+
+# 1. Estimar o Modelo Probit Completo (com nome da variável corrigido: comdominiom)
+probit_completo <- glm(deny_num ~ dir + hir + lvr + ccs + mcs + pbcr + dmi + self + single + uria + comdominiom + black,
+                       data = hmda_clean,
+                       family = binomial(link = "probit"))
+
+# 2. Calcular os Efeitos Parciais Médios (APEs) com Erros-Padrão Robustos (HC3)
+efeitos_parciais <- avg_slopes(probit_completo, vcov = "HC3")
+
+# 3. Selecionar as 4 variáveis com maior APE em magnitude
+top_4_efeitos <- efeitos_parciais %>%
+  # Calcula a magnitude (valor absoluto) do APE (estimate)
+  mutate(Magnitude = abs(estimate)) %>%
+  # Ordena de forma decrescente pela magnitude
+  arrange(desc(Magnitude)) %>%
+  # Seleciona as 4 primeiras linhas
+  slice(1:4) %>%
+  # Seleciona as colunas essenciais
+  select(term, estimate, conf.low, conf.high) 
+
+# Exibir a tabela detalhada com os 4 maiores APEs
+print(top_4_efeitos)
+```
+
+O modelo Probit completo foi estimado para analisar o impacto das variáveis 
+econômicas e demográficas na probabilidade de negativa de um pedido de hipoteca.
+Os Efeitos Parciais Médios (APEs), calculados com erros-padrão robustos (HC3), 
+quantificam a variação média na probabilidade de negativa quando o regressor muda.
+
+a. Variáveis com Maiores Efeitos Parciais Médios em Magnitude
+
+Os quatro maiores Efeitos Parciais Médios em magnitude, obtidos a partir da 
+ordenação dos resultados, são: `dmi`, `dir`, `pbcr`, `lvr`.
+
+
+b. Interpretação Econômica (em Pontos Percentuais)
+
+A interpretação dos APEs é feita em pontos percentuais (p.p.) (multiplicando o APE por 100), representando a mudança média na probabilidade de negativa.
+
+VariávelInterpretação Econômica
+
+1. dmi: 
+
+O fato de o requerente ter outras dívidas hipotecárias (dmi = sim), em 
+comparação com não ter, aumenta a probabilidade prevista de negativa da 
+hipoteca em `r round(100*top_4_efeitos$estimate[1], digits = 2)` p.p.. Este é o maior efeito no modelo.
+
+2. dir:
+
+Um aumento de uma unidade (p.p.) na razão Prestação/Renda (dir) aumenta a 
+probabilidade prevista de negativa da hipoteca em `r round(100*top_4_efeitos$estimate[2], digits = 2)` p.p., refletindo um 
+alto impacto do ônus da dívida sobre a renda.
+
+3. pbcr:
+
+O fato de o requerente ter histórico de crédito ruim (pbcr = sim), em comparação
+com não ter, aumenta a probabilidade prevista de negativa da hipoteca em `r round(100*top_4_efeitos$estimate[3], digits = 2)` p.p..
+
+4. lvr:
+
+Um aumento de uma unidade (p.p.) na razão Empréstimo/Valor (lvr) aumenta a
+probabilidade prevista de negativa da hipoteca em `r round(100*top_4_efeitos$estimate[4], digits = 2)` p.p., indicando que um 
+financiamento mais alavancado eleva o risco de rejeição.
+
+Logo, os resultados indicam que as variáveis mais importantes para a negativa da 
+hipoteca estão diretamente relacionadas à qualidade e ao volume da dívida do 
+requerente.
+
+**C.** 
+
+```{r}
+# Este script requer os pacotes 'marginaleffects' e 'dplyr'
+# library(marginaleffects) 
+# library(dplyr) 
+
+# Pressuposto: O data frame hmda_clean e a variável deny_num existem.
+
+# 1. Estimar o Modelo Probit com Interação (probit_interacao)
+# Incluímos o termo de interação 'black:dir' e mantemos a correção 'comdominiom'.
+probit_interacao <- glm(deny_num ~ dir + hir + lvr + ccs + mcs + pbcr + dmi + self + single + uria + comdominiom + black + black:dir,
+                       data = hmda_clean,
+                       family = binomial(link = "probit"))
+
+# 2. Obter os Efeitos Parciais Médios (APEs) de 'dir', separados por 'black'
+# O código 'by = "black"' calcula o APE de 'dir' em cada subgrupo.
+efeitos_dir_por_raca <- avg_slopes(probit_interacao, 
+                                   variables = "dir", 
+                                   by = "black", 
+                                   vcov = "HC3")
+
+# 3. Exibir os resultados para análise
+print(efeitos_dir_por_raca)
+```
+
+
+A inclusão do termo de interação $\text{black}:\text{dir}$ no modelo Probit
+permite que o impacto de um aumento na razão Prestação/Renda (dir) varie entre 
+requerentes negros e não negros. O comando avg_slopes forneceu os APEs de dir para cada grupo:
+
+Resultados dos Efeitos Parciais Médios (APEs) de `dir`: 
+
+Grupo Não Negros (`black`=`no`)
+
+Estimativa (APE): `r round(efeitos_dir_por_raca$estimate[1], digits = 4)` 
+
+Erro Padrão (Std. Error): `r round(efeitos_dir_por_raca$std.error[1], digits = 4)`
+
+Limite Inferior (2.5%): `r round(efeitos_dir_por_raca$conf.low[1], digits = 4)`
+
+Limite Superior (97.5%): `r round(efeitos_dir_por_raca$conf.high[1], digits = 4)`
+
+Grupo Negros (`black`=`yes`)
+
+Estimativa (APE): `r round(efeitos_dir_por_raca$estimate[2], digits = 4)` 
+
+Erro Padrão (Std. Error): `r round(efeitos_dir_por_raca$std.error[2], digits = 4)`
+
+Limite Inferior (2.5%): `r round(efeitos_dir_por_raca$conf.low[2], digits = 4)`
+
+Limite Superior (97.5%): `r round(efeitos_dir_por_raca$conf.high[2], digits = 4)` 
+
+
+a. Comparação do Efeito Médio de `dir`: 
+
+O efeito médio de um aumento unitário em `dir` sobre a probabilidade de 
+negativa da hipoteca é maior para aplicantes negros do que para aplicantes 
+não negros.
+
+Para não negros: Um aumento de uma unidade (ponto percentual) na razão 
+Prestação/Renda (`dir`) aumenta a probabilidade de negativa em
+`r round(100*efeitos_dir_por_raca$estimate[1], digits = 2)` p.p..
+
+Para negros: O mesmo aumento de uma unidade (p.p.) em `dir` aumenta a 
+probabilidade de negativa em 
+`r round(100*efeitos_dir_por_raca$estimate[2], digits = 2)` p.p..
+
+2. Avaliação da Estimativa Pontual
+
+A estimativa pontual sugere um efeito maior para aplicantes negros. O impacto da
+razão Prestação/Renda em levar à negativa é mais que o dobro para requerentes 
+negros em comparação com não negros. Isso sugere que a instituição financeira 
+percebe o risco de crédito de forma diferenciada entre os grupos, penalizando
+mais severamente os requerentes negros para o mesmo nível de ônus da dívida 
+(`dir`).
+
+3. Interpretação dos Intervalos de Confiança (Conclusão sobre Discriminação)
+
+Os intervalos de confiança de 95% para os dois APEs são:
+
+Intervalo para Não Negros: [`r round(efeitos_dir_por_raca$conf.low[1], digits = 4)`, `r round(efeitos_dir_por_raca$conf.high[1], digits = 4)`]
+
+Intervalo para Negros: [`r round(efeitos_dir_por_raca$conf.low[2], digits = 4)`, `r round(efeitos_dir_por_raca$conf.high[2], digits = 4)`]
+
+O fato de os intervalos se sobreporem significa que, com base neste teste 
+simples de APEs separados, não podemos concluir de forma segura que existe 
+uma diferença estatisticamente significativa entre os dois efeitos ao nível 
+de 5%.
+
+Portanto, os resultados apenas indicam uma possível discriminação ou 
+tratamento diferencial, dada a incerteza estatística (o intervalo para negros 
+é muito mais amplo, refletindo menor número de observações). 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

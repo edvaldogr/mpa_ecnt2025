@@ -1,0 +1,449 @@
+---
+title: "Regressão com Variáveis Instrumentais em R"
+subtitle: "Econometria Aplicada à Finanças - Mestrado em Administração"
+author: SEU NOME
+lang: pt
+format:
+  html:
+    theme: flatly
+    embed-resources: true
+    toc: true
+    number-sections: true
+    toc-depth: 3
+    self-contained: true
+crossref:
+  fig-prefix: 'Fig.'
+  tbl-prefix: 'Tab.'
+execute:
+  echo: true
+  message: false
+  warning: false
+  enabled: true
+editor: source
+---
+
+
+```{r}
+#| label: setup
+#| echo: false
+
+# ------------------------------------------------------------
+# Instala e carrega automaticamente os pacotes necessários
+# Usando o pacote 'pacman', que facilita o processo
+# ------------------------------------------------------------
+
+# Verifica se o pacote 'pacman' está instalado; 
+# caso contrário, instala
+if (!requireNamespace("pacman", quietly = TRUE)) {
+  install.packages("pacman")
+}
+
+# Carrega o pacote 'pacman'
+library(pacman)
+
+# Usa a função p_load() do pacman:
+# - Instala automaticamente os pacotes ausentes
+# - Carrega todos os pacotes listados
+pacman::p_load(
+  tidyverse,   # manipulação e visualização de dados (ggplot2, dplyr etc.)
+  estimatr,    # estimação robusta e variáveis instrumentais
+  fixest,      # regressões lineares, IV e efeitos fixos
+  wooldridge,  # bases de dados do livro de Wooldridge
+  sandwich,    # erros-padrão robustos (White/HC)
+  lmtest,      # testes e diagnósticos de regressão
+  car,         # funções adicionais, ex: linearHypothesis()
+  broom,       # saída organizada (tidy)
+  knitr,       # geração de tabelas e relatórios
+)
+```
+
+
+
+
+# Variáveis Instrumentais
+
+
+## Conjunto de Dados `wage2`
+
+O conjunto de dados **wage2** faz parte do pacote **wooldridge** e contém **935 observações individuais** 
+do ano de **1980** sobre variáveis relacionadas a rendimentos, educação, experiência e 
+características demográficas de trabalhadores nos Estados Unidos.
+
+**Principais Variáveis:**
+
+| Variável | Descrição |
+|:----------|:-----------|
+| `wage` | Ganhos mensais em dólares de 1980. |
+| `lwage` | Logaritmo natural do salário mensal (`log(wage)`). |
+| `educ` | Anos de escolaridade do indivíduo. |
+| `meduc` | Anos de escolaridade da mãe. |
+| `feduc` | Anos de escolaridade do pai. |
+| `exper` | Anos de experiência potencial no mercado de trabalho. |
+| `tenure` | Tempo de permanência no emprego atual (em anos). |
+| `hours` | Média de horas semanais trabalhadas. |
+| `married` | Indicador de estado civil (1 = casado). |
+| `south` | Indicador para residência na região sul dos EUA. |
+
+A variável `wage` **representa o salário mensal** em dólares correntes de 1980, não ajustados pela inflação.  
+
+
+De volta à antiga batalha para estimar o retorno do investimento em educação.
+
+```{r}
+# Carrega os dados wage2 do pacote wooldridge
+data("wage2")
+
+# Seleciona e renomeia as variáveis relevantes
+wage_df <- wage2 |> 
+  transmute(
+    salario = wage,             # salário mensal (US$ 1980)
+    educacao = educ,            # anos de estudo
+    educacao_pai = feduc,       # escolaridade do pai
+    educacao_mae = meduc        # escolaridade da mãe
+  ) |>
+  na.omit() |>
+  as_tibble()
+
+# Exibe as primeiras linhas da tibble
+head(wage_df)
+```
+
+
+O estimador de MQO para os retornos da educação provavelmente (com certeza) será viesado...
+
+Resultados (provavelmente viesado) de MQO:
+
+```{r}
+#| label: ols-teste
+#| echo: false
+
+# regressão de MQO
+reg_mqo <- lm(salario ~ educacao, wage_df)
+
+# exibe os resultados
+kable(tidy(reg_mqo), 
+           digits = 4, 
+           align = "c",  
+           caption = "Estimação de MQO da Equação do Salário") 
+```
+
+Mas e se a educação da mãe fornecer um instrumento válido? Podemos verificar/testar 
+a *relevância* da educação da mãe para a educação
+
+Essa regressão é conhecida como o **primeiro estágio**:
+
+O efeito do instrumento sobre nossa variável explicativa endógena
+
+$$
+\begin{align}
+  \textcolor{#6A5ACD}{\text{Educação}_i} = \gamma_0 + \gamma_1 \textcolor{#e64173}{\left( \text{Educação da Mãe} \right)_i} + v_i
+\end{align}
+$$
+
+Resultados da regressão do primeiro estágio:
+
+```{r}
+# regressão - primeiro estágio
+reg_iv1 <- lm(educacao ~ educacao_mae, wage_df)
+
+# exibe os resultados
+kable(tidy(reg_iv1), 
+      digits = 4, 
+      align = "c",  
+      caption = "Regressão do Primeiro Estágio") 
+```
+
+O valor-p sugere uma relação muito forte (isto é, uma variável altamente <em>relevante</em>).
+
+Visualizando o primeiro estágio:
+
+```{r}
+# ------------------------------------------------------------
+# Gráfico de dispersão: educação do indivíduo vs. educação da mãe
+# ------------------------------------------------------------
+
+# Define os dados e o mapeamento estético:
+# eixo x = anos de escolaridade da mãe
+# eixo y = anos de escolaridade do indivíduo
+ggplot(data = wage_df, aes(x = educacao_mae, y = educacao)) +
+
+  # Adiciona os pontos/observações
+  geom_point() +
+
+  # Adiciona a reta de regressão linear ajustada aos dados
+  # se = F remove a faixa de confiança ao redor da reta
+  # color define a cor da linha (variável red_pink deve estar previamente definida)
+  geom_smooth(method = lm, se = FALSE, color = "red") +
+
+  # Define os rótulos dos eixos x e y
+  labs(x = "Educação da Mãe (anos)", y = "Educação (anos)") +
+
+  # Define o tema visual do gráfico (padrão limpo e moderno)
+  # base_size ajusta o tamanho da fonte
+  # base_family define a fonte utilizada no gráfico
+  theme_minimal(base_size = 14)
+```
+
+
+Agora, vamos estimar a **forma reduzida**. O efeito do instrumento sobre nossa variável dependente.
+
+$$
+\begin{align}
+  \textcolor{#FFA500}{\text{Salário}_i} = \pi_0 + \pi_1 \textcolor{#e64173}{\left( \text{Educação da Mãe} \right)_i} + w_i
+\end{align}
+$$
+
+Resultados da forma reduzida:
+
+```{r}
+# regressão - forma reduzida
+reg_rf <- lm(salario ~ educacao_mae, wage_df)
+
+# exibe os resultados
+kable(tidy(reg_rf), digits = 4, align = "c",  caption = "Regressão da Forma Reduzida") 
+```
+
+
+
+
+## Pacote estimatr de R
+
+Podemos usar a função `iv_robust()` do pacote `estimatr`.
+
+A função `iv_robust` funciona de forma muito semelhante à nossa conhecida `lm`:
+
+`iv_robust(y ~ x | z, data = dataset)`
+
+- `formula` Especifique a regressão, seguida por `|` e pelo seu instrumento (`z`).  
+- `data` Você ainda precisa fornecer um conjunto de dados.
+
+***Observação:*** Como o próprio nome sugere, `iv_robust` calcula erros-padrão robustos 
+à heterocedasticidade (HC1) por padrão.
+
+
+Em nosso caso, podemos estimar a regressão com variáveis instrumentais com:
+
+```{r}
+# Estima a regressão de VI
+iv_est <- iv_robust(salario ~ educacao | educacao_mae, data = wage_df)
+
+# exibe os resultados
+kable(tidy(iv_est), digits = 4, align = "c",  caption = "Regressão com VI") 
+```
+
+
+
+
+# Minímos Quadrados em Dois Estágios 
+
+O método dos mínimos quadrados em dois estágios (2SLS) é bastante flexível — podemos incluir 
+outras variáveis de controle, variáveis endógenas adicionais *e* utilizar múltiplos instrumentos.
+
+Podemos estimar a regressão do primeiro estágio com:
+
+```{r}
+#| echo: false
+
+# regressao - primeiro estágio
+estagio1 <- lm(educacao ~ educacao_mae + educacao_pai, wage_df)
+
+# exibe os resultados
+kable(tidy(estagio1), digits = 4, align = "c",  caption = "Regressão do Primeiro Estágio") 
+```
+
+Nossos instrumentos parecem ser *relevantes*.
+
+Formalmente, deveríamos testá-los em conjunto. Podemos fazer isso com a 
+função `linearHypothesis()` do pacote car:
+
+```{r}
+car::linearHypothesis(estagio1, c("educacao_mae = 0", "educacao_pai = 0")) 
+```
+
+O teste rejeita a hipótese nula de que os coeficientes de `educacao_mae` e `educacao_pai` 
+sejam ambos iguais a zero, indicando que pelo menos um dos instrumentos é forte. 
+
+Como regra prática, é necessário rejeitar de forma convincente a hipótese nula quando o valor da estatística 
+F é **superior a 10** ou, no caso de existir apenas **um instrumento**, quando a estatística 
+t é **superior a 3,16**, para garantir que o instrumento seja considerado forte.
+
+Para que um modelo esteja identificado, o número de instrumentos deve ser **pelo menos igual** ao 
+número de **variáveis endógenas**. Se houver **mais instrumentos do que variáveis endógenas**, o 
+modelo é denominado **sobreidentificado**.
+
+Agora usamos a regressão de MQO (novamente) para estimar a **regressão do segundo estágio**:
+
+$$
+\begin{align}
+  \textcolor{#FFA500}{\text{Salario}}_i = \delta_0 + \delta_1 \, \widehat{\textcolor{#6A5ACD}{\text{Educacao}}}_i + \varepsilon_i
+\end{align}
+$$
+
+
+Adiciona os valores previstos do primeiro estágio à tibble wage_df:
+
+```{r}
+wage_df$educacao_hat <- estagio1$fitted.values
+```
+
+Executa a regressão do segundo estágio:
+
+```{r}
+# regressao - segundo estágio
+estagio2 <- lm(salario ~ educacao_hat, wage_df)
+
+# exibe os resultados
+kable(tidy(estagio2), digits = 4, align = "c",  caption = "Regressão do Primeiro Estágio") 
+```
+
+
+## Resultados Até o Momento
+
+Regressão de Mínimos Quadrados Ordinários (MQO)
+
+```{r}
+broom::tidy(reg_mqo)
+```
+
+Regressão com Variáveis Instrumentais (VI)
+
+```{r}
+broom::tidy(iv_est)
+```
+
+Regressão com Mínimos Quadrados em Dois Estágios (2SLS) com dois instrumentos
+
+```{r}
+broom::tidy(estagio2)
+```
+
+
+
+## Testes de Especificação
+
+
+Os testes de diagnóstico verificam se o modelo com variáveis instrumentais (VI) 
+fornece **estimativas causais consistentes**.
+
+Para isso, três condições principais devem ser avaliadas:
+
+1. **Relevância dos instrumentos** – os instrumentos explicam a variável endógena.
+
+2. **Endogeneidade** – a variável instrumentada é de fato endógena.
+
+3. **Validade dos instrumentos** – os instrumentos não afetam diretamente a variável dependente.
+
+
+
+
+## Síntese dos diagnósticos da função iv_robust()
+
+| Teste                | Hipótese nula                    | Indica problema quando | Interpretação típica / Resultado esperado |
+| :------------------- | :------------------------------- | :--------------------- | :---------------------------------------- |
+| **Weak instruments** | Instrumentos são fracos          | F < 10                 | F $\geq$ 10 -> instrumentos fortes              |
+| **Wu–Hausman**       | Variável instrumentada é exógena | p < 0.05               | Rejeitar H₀ -> confirma endogeneidade -> VI é necessário |
+| **Overidentifying**  | Instrumentos são válidos         | p < 0.05               | p $\geq$  0.05 -> instrumentos válidos (exógenos) |
+
+
+
+## Pacote estimatr de R
+
+Como você provavelmente imaginou, podemos utilizar a função `iv_robust()` do pacote `estimatr`.
+para executar automaticamente os dois estágios e obter os resultados dos 
+testes de especificação (ou de diagnóitico)
+
+`iv_robust(y ~ x1 + x2 + ⋯ | z1 + z2 + ⋯, data)`
+
+No nosso caso, temos:
+
+- uma variável explicativa (`x`) (educação)
+
+- dois instrumentos (`z`) (educação dos pais)
+
+```{r}
+reg_2sls <- iv_robust(salario ~ educacao | educacao_mae + educacao_pai, 
+                diagnostics = TRUE,
+                data = wage_df)
+
+summary(reg_2sls)
+```
+
+
+::: {.callour-tip icon="false"}
+## Sua Vez
+
+Abaixo, escreva sua interpretação para cada um dos testes de especificação obtidos com a 
+regressão 2SLS:
+
+
+1. Teste para Instrumentos Fracos:
+
+
+2. Teste Wu-Hausman de Endogeneidade:
+
+
+3. Teste de Sobreidentificação de Sargan/Wooldridge:
+
+:::
+
+
+
+## Resumo
+
+Um modelo com variáveis instrumentais (VI) é considerado **válido para inferência causal** quando:
+
+1. Os instrumentos são **relevantes** (teste de instrumentos fracos aprovado).
+2. A variável instrumentada é **endógena** (teste de Wu–Hausman rejeita H₀).
+3. Os instrumentos são **exógenos** (teste de sobreidentificação não rejeita H₀).
+
+Quando essas três condições são satisfeitas, o modelo estimado com `iv_robust` 
+fornece **estimativas causais consistentes** do efeito da variável endógena sobre o resultado.
+
+
+
+
+## Recomendo: Pacote `fixest`
+
+O `fixest` é um pacote rápido e flexível para diversos tipos de modelos de regressão: 
+MQO, 2SLS (variáveis instrumentais) e efeitos fixos em dados em painel, com suporte a erros-padrão 
+robustos (heterocedasticidade), entre outros recursos.
+
+### Pontos fortes
+
+- **Desempenho** em bases grandes (núcleo escricto em C++).
+- **Sintaxe enxuta** para IV e efeitos fixos na mesma fórmula.
+- **Erros-padrão robustos/clusterizados** via `vcov`.
+- Integração amigável com `broom`/`modelsummary`.
+
+### Sintaxe essencial do `feols()`
+
+- **Regressão Linear de MQO**
+
+```r
+feols(y ~ x1 + x2, data = dados)
+```
+
+- **Regressão com VI (2SLS)**
+
+```r
+# bloco entre parênteses: (variável endógena ~ instrumentos)
+feols(y ~ x_exog | (endog ~ z1 + z2), data = dados)
+```
+
+Estimando salário em função de educação, com **educação instrumentada** por escolaridade dos pais, 
+com o seguinte código. 
+
+Como apenas `educacao` é endógena, o lado esquerdo deve conter apenas o intercepto (~1):
+
+```{r}
+# regressão com VI com 2 instrumentos
+reg_feols <- feols(
+  salario ~ 1 | educacao ~ educacao_mae + educacao_pai,
+  data = wage_df
+)
+
+# exibe os resultados
+# erros-padrao robustos à heterocedasticidade
+summary(reg_feols, vcov = "HC1")
+```
+

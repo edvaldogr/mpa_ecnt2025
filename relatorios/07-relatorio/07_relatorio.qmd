@@ -1,0 +1,898 @@
+---
+title: "Modelos de Regressão Linear"
+subtitle: "Testes de Estabilidade de Parâmetros <br> Hipótese de Normalidade dos Resíduos <br> Diagnósticos de Observações Influentes <br> Regressão Robusta"
+author: SEU NOME
+lang: pt
+format:
+  html:
+    theme: flatly
+    embed-resources: true
+    toc: true
+    number-sections: true
+    toc-depth: 3
+    self-contained: true
+crossref:
+  fig-prefix: 'Fig.'
+  tbl-prefix: 'Tab.'
+execute:
+  echo: true
+  message: false
+  warning: false
+  enabled: true
+editor: source
+bibliography: referencias.bib
+csl: associacao-brasileira-de-normas-tecnicas-ipea.csl
+---
+
+
+```{r}
+#| label: setup
+#| echo: false
+
+# configura exibição de números
+options(digits = 5, scipen = 999)
+
+# pacotes necessários
+library(tidyverse)   
+library(highcharter) # gráfico interativo
+library(ggpubr)      # gráfico quantil-quantil normal
+library(AER)         # dados OECDGrowth
+library(sandwich)    # dados PublicSchools
+library(nortest)     # testes de normalidade dos resíduos
+library(DescTools)   # teste de jarque-bera  
+library(strucchange) # testes de estabilidade de parametros
+library(robustbase)  # regressão robusta com lmrob
+library(MASS)        # regressão robusta com lqs
+
+
+# carrega os dados do pacote sandwich
+data("PublicSchools", package = "sandwich")
+
+# carrega os dados do pacote AER
+data("OECDGrowth", package = "AER")
+```
+
+
+
+# Testes de Estabilidade de Parâmetros
+
+
+O pacote strucchange fornece métodos estatísticos para detectar e 
+analisar quebras estruturais em modelos de regressão, permitindo 
+testar a estabilidade de parâmetros.
+
+
+## Teste de Chow em R
+
+```{r}
+## define o caminho para a planilha Excel contendo os dados
+path_macro <- here::here("dados/brutos/macro.xls")
+
+## importa os dados da planilha Excel
+macro <- readxl::read_xls(path_macro)
+
+## calcula as primeiras diferenças das variáveis macroeconomicas
+macro$dspread = c(NA,diff(macro$BMINUSA))
+macro$dcredit = c(NA,diff(macro$CCREDIT))
+macro$dprod = c(NA,diff(macro$INDPRO))
+macro$dmoney = c(NA,diff(macro$M1SUPPLY))
+macro$inflation = c(NA,100*diff(log(macro$CPI)))
+macro$rterm = c(NA,diff(macro$USTB10Y-macro$USTB3M))
+macro$dinflation = c(NA,100*diff(macro$inflation))
+
+# calcula os retornos excedentes (logaritmicos)
+macro$rsandp = c(NA,100*diff(log(macro$SANDP)))
+macro$ermsoft = c(NA,100*diff(log(macro$MICROSOFT)))-macro$USTB3M/12
+macro$ersandp = macro$rsandp-macro$USTB3M/12
+
+lm_msoft = lm(ermsoft ~ ersandp + dprod + dcredit + dinflation + dmoney + 
+                dspread + rterm, data = macro)
+```
+
+
+### Teste de Chow em R - Data Conhecida
+
+```{r}
+## Defina o ponto de quebra
+
+# Suspeita que a quebra ocorreu em janeiro de 1996
+data_quebra <- as.Date("1996-01-01")
+
+## Encontre a posição da data de quebra nos dados
+ponto_quebra <- which(macro$Date == data_quebra)
+ponto_quebra
+
+## Ajuste o modelo de regressão linear para os dados completos
+lm_completa <- lm(ermsoft ~ ersandp + dprod + dcredit + dinflation + 
+                            dmoney + dspread + rterm, data = macro)
+
+# A função `sctest` com `type = "Chow"` realiza o teste de Chow 
+## para um ponto de quebra específico
+teste_chow <- sctest(lm_completa, type = "Chow", point = ponto_quebra)
+
+## Exibe o resultado do teste de Chow
+teste_chow
+```
+
+
+**Conclusão:**
+
+- O teste de Chow executado verificou se os parâmetros do modelo APT estimado,
+via regressão linear, para os retornos da Microsoft variam entre os 
+dois subperíodos, ou seja, antes e depois de  janeiro de 1996. 
+
+- A hipótese nula é a de que não há quebra estrutural. Como o
+o valor-p correspondente é 0.01576, rejeitamos a hipótese 
+nula de que os parâmetros são constantes entre os dois subperíodos 
+ao nível de significância de 5%.
+
+
+
+### Teste de Chow em R - Data da Mudança Desconhecida
+
+- Frequentemente, a data em que a quebra estrutural ocorre não é conhecida 
+com antecedência. 
+
+- Portanto, a estatística do teste de Chow é computada para cada ponto 
+de quebra possível no intervalo fornecido.
+
+- A aplicação da função `sctest()` do pacote `structchang`e executará um 
+teste de Wald supremo para comparar a estatística máxima com o que 
+poderia ser esperado sob a hipótese nula de nenhuma quebra.
+
+- Para obter a data real do intervalo sugerido, calcule o índice 
+da estatística máxima usando a função `which.max()` e adicione 59, 
+conforme explicado em 
+
+
+```{r}
+## Teste de Chow (estrutura desconhecida)
+# Fstats calcula  estatísticas F para avaliar quebras estruturais desconhecidas
+sbtest <- Fstats(lm_msoft, data = macro)
+
+## Testa a hipótese de quebra estrutural com base nas estatísticas F calculadas
+# sctest realiza o teste de Chow
+sctest(sbtest)
+
+## Identifica o ponto de maior estatística F, que indica a data mais provável 
+## de quebra estrutural
+bp <- which.max(sbtest$Fstats) + 59  # Ajuste para a contagem de observações
+
+## Mostra a data correspondente à possível quebra estrutural
+macro$Date[bp]
+```
+
+
+**Conclusão:**
+
+- Novamente, a hipótese nula é de que não há quebras estruturais. 
+
+- A estatística de teste ($F =$ 32,465) e o valor-p correspondente (0,002) 
+sugerem que podemos rejeitar a hipótese nula de que 
+os coeficientes são estáveis ao longo do tempo, ao nível de 
+significância de 1%, confirmando que o modelo 
+possui uma quebra estrutural, sendo que o teste sugere maio de 
+2001 como a data da quebra.
+
+
+### Teste CumSum em R
+
+```{r}
+plot(efp(lm_msoft, data = macro))
+```
+
+
+
+
+# Hipótese de Normalidade dos Resíduos
+
+
+## Dados PublicSchools
+
+Os dados `PublicSchools`, disponíveis no pacote **sandwich** da linguagem R, contêm informações 
+sobre escolas públicas nos EUA. 
+
+O conjunto de dados inclui 51 observações sobre 2 variáveis: 
+
+- **Expenditure** despesa per capita em escolas públicas, em dólares.
+
+- **income** Renda per capita, em dólares.
+
+Visão geral dos dados:
+
+```{r}
+dplyr::glimpse(PublicSchools)
+```
+
+
+```{r}
+# exibe as primeiras observações
+head(PublicSchools)
+```
+
+
+Gráfico de Dispersão Estático:
+
+```{r}
+# Remove dados faltantes
+ps <- na.omit(PublicSchools)
+
+# Divide a renda por 10000
+ps <- ps %>% mutate(Income = Income / 10000)
+
+## Gráfico de dispersão com reta de regressão ajustada
+ggplot(ps, aes(x = Income, y = Expenditure)) +
+  # adiciona gráfico de pontos
+  geom_point() +
+  # adiciona reta de regressão ajustada
+  geom_smooth(method = "lm", se = FALSE) +
+  # adiciona rótulos e título
+  labs(title = "Renda x Despesa per Capita em Escolas Públicas nos EUA",
+       caption = "Fonte: Greene (1993)",
+       x = "Renda per capita (x 10.000 dólares)",
+       y = "Despesa per caputa (dólares)") +
+  theme_minimal()
+```
+
+
+Gráfico de Dispersão Interativo:
+
+```{r}
+# grafico de dispersao interativo com highcharter
+hchart(ps, "scatter", hcaes(x = Income, y = Expenditure, name = rownames(ps))) %>%
+  # adiciona legenga
+  hc_title(text = "Renda x Despesa per Capita em Escolas Públicas nos EUA") %>%
+  # nome do eixo x
+  hc_xAxis(title = list(text = "Renda per capita (/10.000 dólares)")) %>%
+  # nome do eixo y
+  hc_yAxis(title = list(text = "Despesa per capita (dólares)")) %>%
+  # fonte dos dados
+  hc_caption(text = "Fonte: Greene (1993)") %>%
+  # define o que é exibido no tooltip
+  hc_tooltip(pointFormat = "{point.name}:<br>Renda per capita: {point.x} (/ 10.000) <br>Despesa per capita: {point.y} dólares") 
+```
+
+
+
+## Diagnósticos Gráficos da Normalidade dos Resíduos
+
+
+Gráfico Quantil-Quantil Normal:
+
+```{r}
+# estima um modelo de regressão linear simples
+ps_lm <- lm(log(Expenditure) ~ log(Income), data = PublicSchools)
+
+# gráfico quantil-quantil normal dos resíduos
+plot(ps_lm, which = 2)
+```
+
+
+Gráficos Q-Q Normal com o pacote ggpubr:
+
+```{r}
+# extrai os resíduos do objeto ps_lm
+ps_lm_residuos <- residuals(ps_lm)
+
+# Gráfico quantil-quantil dos resíduos
+ggqqplot(ps_lm_residuos) + 
+  xlab("Quantis teóricos de uma distribuição normal padrão") + 
+  ylab("Resíduos")
+```
+
+
+
+# Testes da Hipótese da Normalidade dos Resíduos
+
+
+## Teste de Jarque-Bera em R
+
+```{r}
+# carrega o pacote
+library(DescTools)
+
+# teste de Jarque-Bera - versào robusta
+JarqueBeraTest(ps_lm_residuos, robust = TRUE)
+```
+
+
+
+## Teste de Shapiro-Wilk em R
+
+```{r}
+# teste de Shapiro-Wilk de normalidade dos resíduos
+shapiro.test(ps_lm_residuos)
+```
+
+
+## Teste de Anderson-Darling em R
+
+```{r}
+# teste de Anderson-Darling de normalidade dos resíduos
+nortest::ad.test(ps_lm_residuos)
+```
+
+
+## Teste de Cramer-von Mises
+
+```{r}
+# teste de Cramer-von Mises de normalidade dos resíduos
+nortest::cvm.test(ps_lm_residuos)
+```
+
+
+## Teste de Lilliefors em R
+
+```{r}
+# teste de Lilliefors de normalidade dos resíduos
+nortest::lillie.test(ps_lm_residuos)
+```
+
+
+## Teste de Shapiro-Francia em R
+
+
+```{r}
+# teste de D’Agostino-Pearson de normalidade dos resíduos
+nortest::sf.test(ps_lm_residuos)
+```
+
+
+::: {.callout-tip}
+## E agora José?
+
+- O que você poderia fazer (com fundamento) para induzir a normalidade dos 
+resíduos?
+:::
+
+
+
+
+
+# Diagnósticos de Observações Influentes
+
+
+
+## Matriz $H$ (Hat)
+
+Considere os dados a seguir onde $Y$ é uma variável resposta 
+relacionada à variável explicativa $X$:
+
+|   $X$  | $Y$   |
+|--------|--------|
+| 50     | 6      |
+| 52     | 8      |
+| 55     | 9      |
+| 75     | 7      |
+| 57     | 8      |
+| 58     | 10     |
+
+O modelo de regressão linear simples é escrito na seguinte forma matricial:
+
+$$
+Y = X \cdot \beta + \epsilon
+$$
+
+sendo:
+
+$$
+Y = \begin{pmatrix} 
+6 \\ 8 \\ 9 \\ 7 \\ 8 \\ 10 
+\end{pmatrix}, \quad 
+X = \begin{pmatrix} 
+1 & 50 \\ 
+1 & 52 \\ 
+1 & 55 \\ 
+1 & 75 \\ 
+1 & 57 \\ 
+1 & 58 
+\end{pmatrix}
+$$
+
+$\epsilon$ é o vetor $(6 \times 1)$ de resíduos, e $\beta$ é o vetor 
+$(2 \times 1)$ dos parâmetros.
+
+A matriz $H$ é calculada por:
+
+$$
+H = X (X' X)^{-1} X'
+$$
+
+Após os cálculos matriciais, obtemos:
+
+$$
+H = \begin{pmatrix} 
+0.32 & 0.28 & 0.22 & -0.17 & 0.18 & 0.16  \\ 
+0.28 & 0.25 & 0.21 & -0.08 & 0.18 & 0.16  \\ 
+0.22 & 0.21 & 0.19 & 0.04 & 0.17 & 0.17.  \\ 
+-0.17 & -0.08 & 0.04 & 0.90 & 0.13 & 0.17 \\ 
+0.18 & 0.18 & 0.17 & 0.13 & 0.17 & 0.17   \\ 
+0.16 & 0.16 & 0.17 & 0.17 & 0.17 & 0.17 
+\end{pmatrix}
+$$
+
+O traço de $H$ é igual ao número de parâmetros no modelo:
+
+$$
+tr(H) = 0.32 + 0.25 + 0.19 + 0.90 + 0.17 + 0.17 = 2
+$$
+
+
+Exemplo em R
+
+```{r}
+# cria o vetor Y
+Y <- c(6, 8, 9, 7, 8, 10)
+Y
+
+# Cria a matriz X
+X <- matrix(c(1, 50, 
+              1, 52,
+              1, 55,
+              1, 75,
+              1, 57,
+              1, 58), ncol = 2, byrow = TRUE)
+X
+```
+
+
+Vamos criar uma data frame para armazenar os dados, 
+fazer um gráfico de dispersão, estimar um modelo de regressão 
+linear simples e adicionar a reta de regressão ao gráfico de dispersão:
+
+```{r}
+# cria uma data frame
+df <- data.frame(Y = Y, X1 = X[, 1], X2 = X[, 2])
+
+# gráfico de dispersão entre Y e X
+plot(Y ~ X[,2], pch = 19, col = "black", data = df)
+
+# estima modelo de regressao simples
+reg_yx <- lm(Y ~ X[,2], data = df)
+
+# adiciona reta estimada ao grafico
+abline(reg_yx)
+```
+
+
+Agora, vamos calcular a matriz $H$ e visualizar os 
+elementos da diagonal principal:
+
+```{r}
+# Calculo da matriz Hat = H = X (X' X)^{-1} X'
+X_transposta <- t(X)
+X_inversa <- solve(X_transposta %*% X)
+matriz_hat <- X %*% X_inversa %*% X_transposta
+round(matriz_hat, 2)
+
+# elementos hii
+hii <- diag(matriz_hat)
+round(hii, 2)
+```
+
+
+- Um valor crítico proposto para $h_{ii}$ é:
+
+$$
+h_{ii} = x_i (X^{T} X)^{-1} x^{t}_i > 2 \times\frac{p}{n}
+$$
+
+- Neste caso, há dois parâmetros ($p = 2$) e seis observações 
+($n = 6$). ou seja, o valor crítico é igual a $\frac{4}{6} = 0,67$.
+
+- Comparando os componentes de $h_{ii}$ com este valor, vemo que, com exceção da
+observação $i = 4$, todas as observações têm $h_{ii} < 0,67$. 
+
+- Assim, comprovamos que a quarta observação (linha) é um 
+**ponto de alavancagem** para estes dados.
+
+```{r}
+hii > 0.67
+```
+
+
+Vamos reestimar o modelo sem a quarta observação:
+
+```{r}
+#| output-location: slide
+
+# Remove a quarta observação (linha)
+Y_sempa <- Y[-4]
+X_sempa <- X[-4, ]
+
+# Cria uma nova data frame sem a quarta observação
+df_sempa <- data.frame(Y = Y_sempa, X1 = X_sempa[, 1], X2 = X_sempa[, 2])
+
+# Cria um novo gráfico de dispersão sem a quarta observação
+plot(Y_sempa ~ X_sempa[,2], pch = 19, col = "black", data = df_sempa)
+
+# Estima o novo modelo de regressão sem a quarta observação
+reg_yx_sempa <- lm(Y_sempa ~ X_sempa[,2], data = df_sempa)
+
+# Adiciona a reta estimada ao novo gráfico
+abline(reg_yx_sempa)
+```
+
+
+Como esperado, há uma função interna da linguagem R para 
+obter a matriz $H$:
+
+```{r}
+# usando a função interna hatvalues
+hatvalues(reg_yx)
+```
+
+
+**Alavancagem Alta:**
+
+- Alavancagem alta $h_{ii}$ geralmente significa valores duas ou 
+  três vezes maiores que o valor médio $\frac{p}{n}$.
+  
+- A alavancagem depende apenas de $X$ e não de $y$.
+
+- **Pontos de Alavancagem "Bons"**: Pontos de alavancagem alta 
+  com $y_i$ típico.
+  
+- **Pontos de Alavancagem "Ruins"**: Pontos de alavancagem alta 
+  com $y_i$ incomum.
+
+
+
+## A função `influence.measures()`
+
+- Esta funçõa calcula as principais estatísticas de influência, como 
+`dfbetas()`, `dffits()`, `covratio()`, `cooks.distance()` e `hatvalues()`.
+  
+- **Observações influentes**: Observações que são incomuns em pelo menos
+uma das medidas de influência são destacadas com `*`.
+
+```{r}
+summary(influence.measures(ps_lm))
+```
+
+
+**Interpretação:**
+
+- O Alasca se destaca por qualquer medida de influência e é claramente 
+  um ponto de alavancagem ruim.
+  
+- Washington, DC, parece ser um ponto de alavancagem ruim (mas não tão 
+  ruim quanto o Alasca).
+  
+- O Mississippi está associado a uma grande mudança nas covariâncias.
+
+
+Excluindo as observações influentes:
+
+```{r}
+#| output-location: slide
+
+# Cria um gráfico de dispersão entre xpenditure (y) e Income (x)
+# Define o intervalo do eixo y entre 230 e 830
+plot(Expenditure ~ Income,
+     data = ps,
+     ylim = c(230, 830))
+
+# Ajusta um modelo de regressão linear simples usando os dados da base 'ps'
+ps_lm <- lm(Expenditure ~ Income, data = ps)
+
+# Adiciona a reta de regressão ao gráfico
+abline(ps_lm)
+
+# Identifica os pontos que possuem grande influência no modelo de regressão
+id <- which(apply(influence.measures(ps_lm)$is.inf, 1, any))
+
+# Adiciona rótulos aos pontos identificados como influentes
+text(ps[id, 2:1], rownames(ps)[id], pos = 1, xpd = TRUE)
+
+# Ajusta um novo modelo de regressão linear excluindo os pontos 
+# identificados como influentes
+ps_noinf <- lm(Expenditure ~ Income, data = ps[-id, ])
+
+# Adiciona a nova reta de regressão ao gráfico, com um estilo 
+# de linha diferente
+abline(ps_noinf, lty = 2)
+
+# Cria uma legenda para diferenciar as duas retas de regressão
+legend(
+  "topleft",
+  c("amostra completa", "sem obs. influentes"),
+  lty = 1:2,
+  bty = "n"
+)
+```
+
+
+
+
+# Regressão Robusta
+
+
+## Estimação do Modelo de Solow com MQO:
+
+```{r}
+#| output-location: slide
+
+# carrega os dados OECDGrowth
+data("OECDGrowth", package = "AER")
+
+# estima o modelo de Solow
+solow_lm <- lm(log(gdp85/gdp60) ~ log(gdp60) + log(invest) + 
+                 log(popgrowth + .05), data = OECDGrowth)
+
+# exibe os resultados
+summary(solow_lm)
+```
+
+
+Identificação de observações influentes:
+
+```{r}
+#| output-location: slide
+
+# pacote necessário
+library(olsrr)
+
+# gráfico de diagnóstico dos resíduos
+ols_plot_resid_lev(solow_lm)
+```
+
+
+Podemos visualizar facilamente as observações identificadas 
+usando a função slice do pacote `dplyr`:
+
+```{r}
+OECDGrowth %>% 
+  slice(1, 3, 20, 19)
+```
+
+
+
+
+## Estimação do Modelo de Solow com Regressão Robusta
+
+```{r}
+library(robustbase)
+
+# estima o modelo de Solow com LTS
+solow_robusta <- lmrob(log(gdp85/gdp60) ~ log(gdp60) + log(invest) + log(popgrowth + .05), 
+                 data = OECDGrowth)
+
+# exibe os resultados
+summary(solow_robusta)      
+```
+
+
+## Interpretação do Resultado 
+
+- Os **pesos de robustez** (*Robustness weights*) são 
+atribuídos a cada observação com base no tamanho do seu 
+**resíduo padronizado**. 
+
+- Eles são derivados de uma **função de perda $\rho$** (ou mais 
+especificamente, da derivada dela, a função $\psi$), que determina 
+**quanto peso** uma observação terá na reestimação final dos coeficientes.
+
+- **Observações com resíduos pequenos**: recebem peso próximo de 1 ⇒ são 
+consideradas “boas” e influenciam fortemente os coeficientes finais.
+
+- **Observações com resíduos grandes (outliers)**: recebem peso < 1, assim, têm sua 
+influência reduzida.
+
+- **Outliers extremos**: podem receber peso próximo de zero
+
+
+
+### O que o seguinte trecho do resultado significa?
+
+```{r}
+#| eval: false
+Robustness weights: 
+ 16 weights are ~= 1. The remaining 6 ones are
+     Canada         USA       Japan      Norway      Turkey New Zealand 
+      0.655       0.992       0.274       0.996       0.974       0.960 
+```
+
+- **16 observações** (países, no caso) têm peso **próximo de 1** — ou seja, 
+**não foram consideradas influentes**. Elas participam 
+**com força total** na estimação dos coeficientes.
+
+- **6 observações** receberam **pesos menores que 1**, o que indica que o 
+modelo identificou nelas alguma **característica atípica**, como:
+
+    - Resíduo elevado (indica que a resposta observada está longe do valor 
+      ajustado pelo modelo);
+    - Potencial influência exagerada nos coeficientes (mesmo que o resíduo não 
+      seja tão grande).
+
+- Esses pesos **atenuam a influência** dessas observações na reponderação final 
+do modelo.
+
+
+
+### Exemplo: Japão
+
+- O Japão recebeu peso **0.274** — **muito inferior a 1**.
+
+- Isso indica que, do ponto de vista do modelo robusto:
+
+  - O Japão possui um **resíduo padronizado elevado**;
+  - ou apresenta **alavancagem** elevada combinada com um resíduo alto.
+
+O modelo está, portanto, considerarando o Japão, mas com 
+apenas $\approx$ 27% da influência que teria em um modelo de MQO.
+
+
+
+### Importância prática dos pesos
+
+- Eles*não são usados no modelo final para ponderar diretamente as 
+observações (como em WLS), mas sim para guiar a **reponderação iterativa** 
+na **última etapa do estimador MM**.
+
+- Os pesos são definidos por:
+
+$$
+w_i = \frac{\psi\left(r_i / \hat{\sigma}\right)}{r_i / \hat{\sigma}}
+$$
+
+onde $\psi$ é a derivada da função de perda $\rho$, e $r_i$ é o resíduo 
+da $i$-ésima observação.
+
+- A função $\psi$ usada é especificada pelo parâmetro `psi`, que nesse caso 
+foi `"lqq"` (Least-Quantile-of-Quadratic loss), definida pela configuração 
+`setting = "KS2014"`.
+
+- Em modelos MQO, **todos os pesos são 1**, o que explica sua extrema 
+sensibilidade a outliers.
+
+
+
+
+
+## Estratégia de @zaman2001
+
+@zaman2001 sugeriram a seguinte estratégia:
+
+- Primeiro execute uma análise LTS.
+
+- Identifique as observações com resíduos incomumente altos.
+
+- Execute uma regressão de MQO padrão excluindo as observações discrepantes.
+
+**Nota:**
+
+- A regressão LTS pode identificar muitos pontos como discrepantes.
+
+- Exclua apenas pontos de alavancagem ruins = pontos de alta alavancagem 
+com grandes resíduos LTS.
+
+Em R: a função `lqs()` do pacote `MASS` implementa o Método dos Quantis Quadrados Mínimos 
+(*Least Quantile of Squares*), incluindo LMS, LTS e outras versões.
+
+- Padrão: LTS com $q = \left\lfloor \frac{n}{2} \right\rfloor + \left\lfloor \frac{k+1}{2} \right\rfloor$. 
+
+(Neste exemplo: $q = 13$.
+
+
+```{r}
+solow_lts <- lqs(log(gdp85/gdp60) ~ log(gdp60) + log(invest) + log(popgrowth + .05), 
+                 data = OECDGrowth,
+                 psamp = 13, nsamp = "exact")
+```
+
+
+**Detalhes Algorítmicos:**
+
+- Definir `psamp = 13` e `nsamp = "exact"` especifica que todas as 
+  subamostras concebíveis de tamanho 13 são usadas.
+  
+- Isso garante que a otimização LTS seja resolvida exatamente 
+  (para $q = 13$).
+  
+- Só é viável para amostras pequenas.
+
+- Caso contrário, alguma outra técnica de amostragem deve ser usada (disponíveis na função `lqs()`).
+
+
+**Estimativas de Escala**
+
+A função `lqs()` fornece duas estimativas de escala.
+
+- A primeira é definida pelo critério de ajuste.
+
+- A segunda é baseada na variância dos resíduos cujos valores absolutos 
+são menores que 2,5 vezes a estimativa inicial.
+
+A segunda estimativa é tipicamente utilizada para calcular os resíduos 
+escalados.
+
+**Outliers**: Observações com resíduos escalados "grandes" 
+(superiores a 2,5 em valor absoluto).
+
+
+```{r}
+pequenos_resid <- which(abs(residuals(solow_lts) / solow_lts$scale[2]) <= 2.5)
+```
+
+
+**Alta alavancagem:**
+
+Para consistência, utilize uma medida robusta de alavancagem com base 
+em estimadores robustos da covariância, como o estimador do Elipsóide de 
+Menor Volume (*Minimum-Volume Ellipsoid*, MVE) ou o estimador do 
+Determinante de Covariância Mínima (*Minimum Covariance Determinant*, MCD).
+
+
+Em R: a função `cov.rob()` do pacote `MASS` fornece ambas (padrão: MVE).
+
+```{r}
+X <- model.matrix(solow_lm)[,-1]
+
+Xcv <- cov.rob(X, nsamp = "exact")
+
+semh_alta_alav <- which(sqrt(mahalanobis(X, Xcv$center, Xcv$cov)) <= 2.5)
+```
+
+
+**Detalhes**
+
+- Extrai a matriz de delineamento do modelo.
+- Estima a matriz de covariância utilizando MVE.
+- Calcula a alavancagem utilizando a função `mahalanobis()`.
+- Armazena as observações que não são pontos de alta alavancagem.
+
+
+**Boas Observações**
+
+Observações que possuem pelo menos uma das propriedades desejadas: 
+baixo resíduo ou baixa alavancagem.
+
+```{r}
+boas_obs <- unique(c(pequenos_resid, semh_alta_alav))
+boas_obs
+```
+
+
+
+**Observações ruins**
+
+```{r}
+rownames(OECDGrowth)[-boas_obs]
+```
+
+
+
+Exclui pontos de alavancagem ruins.
+
+```{r}
+solow_robusto <- update(solow_lm, subset = boas_obs)
+summary(solow_robusto)
+```
+
+
+**Interpretação - Modelo de Solow**
+
+Os resultados são um pouco diferentes da regressão de MQO com a 
+amostra completa:
+
+- O crescimento populacional não parece explicar o crescimento 
+econômico para este subconjunto de países (dado os outros regressores).
+
+**Possível explicação**: os países contidos nesta amostra da OCDE 
+são relativamente homogêneos em termos de crescimento populacional, 
+e alguns países com crescimento populacional substancial foram 
+excluídos no procedimento realizado.
+
+Versões estendidas do modelo de Solow poderiam incluir regressores 
+adicionais, como capital humano ($\log(\text{school})$) e *know-how*
+tecnológico ($\log(\text{randd})$).
+
+
+
+
+
+# Referências
+
+::: {#refs}
+:::

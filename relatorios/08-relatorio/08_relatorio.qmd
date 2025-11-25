@@ -1,0 +1,907 @@
+---
+title: "Modelos de Regressão para Variáveis Dependentes Limitadas"
+author: SEU NOME
+lang: pt
+format:
+  html:
+    theme: flatly
+    embed-resources: true
+    toc: true
+    number-sections: true
+    toc-depth: 3
+    self-contained: true
+crossref:
+  fig-prefix: 'Fig.'
+  tbl-prefix: 'Tab.'
+execute:
+  echo: true
+  message: false
+  warning: false
+  enabled: true
+editor: source
+---
+
+
+```{r}
+#| label: setup
+#| echo: false
+
+# configura exibição de números
+options(digits = 5, scipen = 999)
+
+# pacotes necessarios 
+library(tidyverse)
+library(MASS)
+library(Ecdat)
+library(sandwich)
+library(lmtest)
+library(broom)
+library(ROCR)
+library(modelsummary)
+library(marginaleffects)
+```
+
+
+
+
+# Modelo Linear de Probabilidade 
+
+## Dados HMDA do FED de Boston
+
+- Pedidos individuais de hipotecas familiares feitos em 1990 na área 
+  metropolitana de Boston. A fonte dos dados é o 
+  *Federal Reserve Bank of Boston* (FED Boston).
+
+- 2.380 observações, coletadas sob o *Home Mortgage Disclosure Act* (HMDA).
+
+- o HMDA exige que muitas instituições financeiras mantenham, relatem e 
+  divulguem publicamente informações sobre empréstimos hipotecários. 
+
+- Esses dados ajudam a mostrar se as instituições financeiras estão atendendo 
+  às necessidades habitacionais de suas comunidades; 
+  
+- Eles fornecem aos funcionários públicos informações que os ajudam a tomar 
+  decisões e a detectar padrões de empréstimos que podem ser discriminatórios. 
+
+- Os dados públicos são modificados para proteger a privacidade 
+  do solicitantes.
+
+
+## Dados Hmda do Pacote Ecdat
+
+Variável Resposta ($Y$):
+
+- `deny`: A aplicação de hipoteca foi negada?
+    
+Variáveis Explicativas ($X$):
+
+- `dir`: razão entre as prestações e renda total
+
+- `hir`: razão entre despesas com moradia e renda
+
+- `lvr`: razão entre o tamanho do empréstimo e o valor avaliado da propriedade
+
+- `ccs`: pontuação de crédito ao consumidor de 1 a 6 (um valor baixo é uma boa pontuação)
+
+- `mcs`: pontuação de crédito hipotecário de 1 a 4 (um valor baixo é uma boa pontuação)
+
+- `pbcr`: registro público de crédito ruim?
+
+- `dmi`: seguro hipotecário negado?
+
+- `self`: autônomo?
+
+- `single`: o requerente é solteiro?
+
+- `uria`: taxa de desemprego de Massachusetts em 1989 no setor do requerente
+
+- `condominium`: a unidade é um condomínio? 
+
+- `black`: o requerente é negro?
+
+
+
+Vamos carregar e obter uma visão geral dos dados:
+
+```{r}
+# carrega os dados
+data(Hmda)
+
+# visao geral da estrutura dos dados
+dplyr::glimpse(Hmda)
+```
+
+
+
+
+## Análise Exploratória
+
+```{r}
+# estatisticas descritivas das variáveis
+summary(Hmda)
+```
+
+
+```{r}
+#| fig-cap: " Podemos verificar que a obtenção de uma negativa aumenta à medida que a razão prestaçaõ/renda aumenta. Além disso, a relação não parece ser linear. "
+
+# spine plot
+spineplot(deny ~ dir, data = Hmda)
+```
+
+
+Um *spine plot* é um tipo de gráfico usado para visualizar a relação entre uma variável 
+categórica/inteira e outra variável numérica.
+
+
+
+
+## Preparação dos Dados
+
+```{r}
+#| output-location: slide
+
+hmda <- Hmda %>% 
+          mutate(deny_num = as.integer(ifelse(deny == "yes", 1, 0))) %>% 
+          na.omit()
+
+# exibe a estrutura dos dados
+glimpse(hmda)
+```
+
+
+
+
+## Modelo Linear de Probabilidade em R
+
+```{r}
+# estimacao do modelo de regressao linear simples
+mlp <- lm(deny_num ~ dir, data = hmda)
+
+# estimativas de erros padrao robustos a heterocedasticidade
+broom::tidy(lmtest::coeftest(mlp, vcov = vcovHC))
+```
+
+
+Análise:
+
+- A estimativa $\hat{\beta}_1$ é estatisticamente diferente de zero ao nível 
+de significância ($\alpha$) de $1$%. 
+
+- $\hat{\beta}_1$ pode ser interpretada da seguinte forma: Um aumento de 
+1 ponto percentual na razão P/R leva a um aumento médio 
+na probabilidade de uma negativa do empréstimo de 
+$\approx 0.6\%$ ($0.604 \cdot 0.01 = 0.00604 \approx 0.6\%$).
+
+
+
+
+## Modelo Linear de Probabilidade: Falha Grave
+
+```{r}
+#| output-location: slide
+
+# grafico de dispersão
+plot(x = hmda$dir, 
+     y = hmda$deny_num,
+     main = "Modelo Linear de Probabilidade Estimado",
+     xlab = "Razão Prestações/Renda",
+     ylab = "Solicitação de Hipoteca?",
+     pch = 20,
+     ylim = c(-0.4, 1.4),
+     cex.main = 0.8,
+     data = hmda)
+
+# adiciona linhas horizontais tracejadas e texto
+abline(h = 1, lty = 2, col = "darkred")
+abline(h = 0, lty = 2, col = "darkred")
+text(2.5, 0.9, cex = 0.8, "Hipoteca negada")
+text(2.5, -0.1, cex= 0.8, "Hipoteca aprovada")
+
+# adiciona a reta de regressão estimada
+abline(mlp, 
+       lwd = 2.2, 
+       col = "steelblue")
+```
+
+
+
+
+# Modelos Probit e Logit 
+
+
+## Função `glm` em R
+
+A função `glm()` estima os modelos lineares generalizados em R, 
+uma extensão flexível dos modelos lineares que permite:
+
+**Sintaxe Básica**
+
+```r
+glm(formula, 
+    family = gaussian, 
+    data)
+```
+
+**Parâmetros Principais**
+
+- `formula`: Especificação do modelo `(y ~ x1 + x2 + ...)`
+
+- `family`: Distribuição da variável resposta e função de ligação:
+
+    - `gaussian` (normal, default)
+    - `binomial(link = "probit")` (modelo probit)
+    - ` binomial(link = "logit"),` (modelo logit)
+    - `poisson` (dados de contagem) 
+
+- `data`: data frame 
+
+
+
+## Função `glm`: Estimando um Modelo Probit
+
+```{r}
+# estima um modelo probit
+modelo_probit <- glm(deny_num ~ dir + black + self, 
+                     family = binomial(link = "probit"),
+                     data = hmda)
+
+# exibe os resultados da estimação
+summary(modelo_probit)
+```
+
+
+
+
+
+## Função `glm`: Estimando um Modelo Logit
+
+```{r}
+# estima o modelo logit
+modelo_logit <- glm(deny_num ~ dir + black + self, 
+                    family = binomial(link = "logit"),
+                    data = hmda)
+
+# exibe os resultados da estimação
+summary(modelo_logit)
+```
+
+
+
+
+
+# Interpretação das Estimativas dos Parâmetros
+
+
+## Efeitos Parciais Médios em R 
+
+```{r}
+library(marginaleffects)
+
+# estima um modelo probit
+modelo_probit <- glm(deny_num ~ dir + black + self, 
+                     family = binomial(link = "probit"),
+                     data = hmda)
+
+# estima efeitos parciais médios com erros-padrão robustos à 
+# heterocedasticidade
+avg_slopes(modelo_probit, by = TRUE, vcov = "HC0")
+```
+
+
+**Interpretação:**
+
+- Se o aplicante da hipoteca é negro, a probabilidade de negativa 
+da hipoteca aumenta 17%, em média, mantidas as demais variáveis 
+constantes.
+
+- Se `dir` aumenta em uma unidade, a probabilidade de negativa da 
+hipoteca aumenta 50%, em média, mantidas as demais variáveis 
+constantes.
+
+- Se o aplicante da hipoteca é autonômo, a probabilidade de negativa 
+da hipoteca aumenta 5,6%, em média, mantidas as demais variáveis 
+constantes.
+
+
+```{r}
+# estima um modelo logit
+modelo_logit <- glm(deny_num ~ dir + black + self, 
+                    family = binomial(link = "logit"),
+                    data = hmda)
+
+# estima efeitos parciais médios com erros-padrão robustos à 
+# heterocedasticidade
+avg_slopes(modelo_logit, by = TRUE, vcov = "HC0")
+```
+
+Podemos ver que os resultados são similares.
+
+
+
+
+## Razão de Chances - Modelo Logit
+
+```{r}
+# estima os parâmetros do modelo com erros-padrão rob. à heterocedasticidade
+coeftest(modelo_logit, vcov. = vcovHC)
+
+# odds ratio exponenciada
+exp(coef(modelo_logit))
+```
+
+
+**Interpretação:**
+
+- Se `dir` aumenta em uma unidade, as chances de ter a hipoteca negada 
+($Y_i = 1$) aumentam em $(196 - 1)*100 \approx$ 19.500%!!!, 
+mantidas as demais variáveis constantes.
+
+- Se o aplicante da hipoteca é negro, as chances de ter a 
+hipoteca negada aumentam em $(3.7 - 1)*100 =$ 270%, mantidas as 
+demais variáveis constantes.
+
+- Se o aplicante da hipoteca é autônomo, as chances de ter a 
+hipoteca negada aumentam em $(1.6 - 1)*100 =$ 60%, mantidas as 
+demais variáveis constantes.
+
+
+
+
+
+# Medidas da Qualidade do Ajuste 
+
+
+## $\text{pseudo-}R^2$ de McFadden
+
+```{r}
+pseudoR2_probit <- 1 - (modelo_probit$deviance) / (modelo_probit$null.deviance)
+pseudoR2_probit
+```
+
+```{r}
+pseudoR2_logit <- 1 - (modelo_logit$deviance) / (modelo_logit$null.deviance)
+pseudoR2_logit
+```
+
+
+
+## Percentual de Corretamente Previstos = Acurácia
+
+
+## Matriz de Confusão 
+
+|                     | **Previsto: 1**             | **Previsto: 0**             |
+|---------------------|-----------------------------|-----------------------------|
+| **Real: 1**         | Verdadeiros Positivos (TP)  | Falsos Negativos (FN)       |
+| **Real: 0**         | Falsos Positivos (FP)       | Verdadeiros Negativos (TN)  |
+
+
+::: {.callout-note icon="false"}
+### Métricas básicas
+
+- **Acurácia**: $\dfrac{\text{TP}+\text{TN}}{N}$ 
+- **Sensibilidade = Taxa de Verdadeiros Postivos (TPR)**: $\dfrac{\text{TP}}{\text{TP}+\text{FN}}$ 
+- **Especificidade = Taxa de Verdadeiros Negativos (TNR)**: $\dfrac{\text{TN}}{\text{TN}+\text{FP}}$
+- **Taxa de Falsos Positivos (FPR)**: $1-\text{TNR} = \dfrac{\text{FP}}{\text{FP}+\text{TN}}$  
+
+:::                                                                               
+
+
+
+
+## Cálculo manual da Acurácia Básica em R
+
+```{r}
+# Calcula previsões
+previsoes_probit <- ifelse(predict(modelo_probit, type = "response") > 0.5, 1, 0)
+previsoes_logit <- ifelse(predict(modelo_logit, type = "response") > 0.5, 1, 0)
+
+# Cria matrizes/tabelas de confusão
+tab_probit <- table(Observado = hmda$deny_num, Previsto = previsoes_probit)
+tab_logit <- table(Observado = hmda$deny_num, Previsto = previsoes_logit)
+
+# Calcula acurácias
+acuracia_probit <- sum(diag(tab_probit)) / sum(tab_probit) * 100
+acuracia_logit <- sum(diag(tab_logit)) / sum(tab_logit) * 100
+
+# Exibe resultados
+cat("Matriz de Confusão - Modelo Probit:\n")
+# exibe a matriz de confusão
+tab_probit
+cat("\nAcurácia do modelo Probit:", round(acuracia_probit, 2), "%\n\n")
+
+cat("Matriz de Confusão - Modelo Logit:\n")
+# exibe a matriz de confusão
+tab_logit
+cat("\nAcurácia do modelo Logit:", round(acuracia_logit, 2), "%\n")
+```
+
+
+
+
+## Curva ROC com AUC em R 
+
+
+```{r}
+# pacote necessário
+library(ROCR)
+
+# Probabilidades previstas (modelos já estimados)
+prob_probit <- predict(modelo_probit, type = "response")
+prob_logit  <- predict(modelo_logit,  type = "response")
+y_obs <- hmda$deny_num
+
+# Objetos ROCR
+pred_probit <- prediction(prob_probit, y_obs)
+pred_logit  <- prediction(prob_logit,  y_obs)
+
+# Curvas ROC
+perf_probit <- performance(pred_probit, "tpr", "fpr")
+perf_logit  <- performance(pred_logit,  "tpr", "fpr")
+
+# AUC
+auc_probit <- performance(pred_probit, "auc")@y.values[[1]]
+auc_logit  <- performance(pred_logit,  "auc")@y.values[[1]]
+
+# Gráfico ROC
+plot(perf_probit, lwd = 2,
+     main = "Curvas ROC — Probit vs Logit",
+     xlab = "Taxa de Falsos Positivos (1 − Especificidade)", 
+     ylab = "Taxa de Verdadeiros Positivos (Sensibilidade)")
+plot(perf_logit, add = TRUE, lwd = 2, lty = 2)
+abline(0, 1, lty = 3)
+
+legend("bottomright",
+       legend = c(paste0("Probit (AUC = ", round(auc_probit, 3), ")"),
+                  paste0("Logit  (AUC = ", round(auc_logit, 3), ")")),
+       lwd = 2, lty = c(1, 2), bty = "n")
+```
+
+
+
+# Modelo Probit Ordenado
+
+
+O conjunto de dados simulado representa um cenário simplificado de análise de risco de crédito corporativo,
+no qual empresas são classificadas em três categorias ordenadas de risco: **Baixo**, **Médio** e **Alto**.
+
+Cada observação corresponde a uma empresa, e a classificação de risco depende de três indicadores =contábeis amplamente utilizados na literatura de finanças corporativas:
+
+1. **ROA (Retorno sobre Ativos)** – mede a rentabilidade da empresa. Empresas mais rentáveis tendem a apresentar menor risco de crédito, pois geram lucros suficientes para honrar seus compromissos financeiros.
+
+2. **Alavancagem (Proporção de Dívida)** – indica o grau de endividamento. Empresas mais alavancadas têm maior exposição ao risco de inadimplência, especialmente em períodos de instabilidade.
+
+3. **Tamanho da Empresa (Ativos Totais)** – reflete a escala de operação. Empresas maiores costumam ser menos arriscadas, pois possuem maior diversificação, melhor acesso a crédito e estruturas de governança mais sólidas.
+
+A variável de risco foi gerada a partir de um **índice latente não observável** que combina esses três fatores com um termo aleatório. Esse índice representa o risco de crédito "verdadeiro" da firma. As categorias observáveis (Baixo, Médio e Alto) foram definidas de acordo com pontos de corte baseados nos quantis da distribuição desse índice.
+
+Esses dados simulados permitem ilustrar o uso e a interpretação de um modelo probit ordenado.
+
+
+```{r}
+# ------------------------------------------------------------
+# Exemplo: Modelo Probit Ordenado aplicado ao risco de credito
+# ------------------------------------------------------------
+# O objetivo e simular dados de empresas com tres categorias de risco de credito:
+#   "Baixo", "Medio" e "Alto", em funcao de tres indicadores contabeis:
+#   rentabilidade (roa), alavancagem (alav) e tamanho da empresa (tam).
+# ------------------------------------------------------------
+
+# Define a semente para reprodutibilidade
+set.seed(1234)
+
+# Define o tamanho da amostra (numero de empresas)
+n <- 800
+
+# ---------------------------------------------------------------------------
+# 1) Geracao dos regressores correlacionados
+# ---------------------------------------------------------------------------
+# O objetivo e gerar tres variaveis correlacionadas entre si:
+#   z_roa   -> fator latente associado a rentabilidade
+#   z_alav  -> fator latente associado a alavancagem
+#   z_tam   -> fator latente associado ao tamanho da empresa
+# A matriz de correlacao reflete relacoes economicas plausiveis:
+#   - rentabilidade e alavancagem: correlacao negativa (-0.10)
+#   - rentabilidade e tamanho:     correlacao positiva (+0.25)
+#   - alavancagem e tamanho:       correlacao positiva (+0.40)
+R <- matrix(c( 1.00, -0.10,  0.25,
+              -0.10,  1.00,  0.40,
+               0.25,  0.40,  1.00), 
+            nrow = 3, byrow = TRUE)
+
+# Gera as variaveis latentes multivariadas (media zero, variancia 1)
+Z <- mvrnorm(n, mu = c(0, 0, 0), Sigma = R)
+
+# Atribui cada vetor latente a uma variavel economica
+z_roa  <- Z[, 1]
+z_alav <- Z[, 2]
+z_tam  <- Z[, 3]
+
+# ---------------------------------------------------------------------------
+# 2) Cria as variaveis economicas em escalas realistas
+# ---------------------------------------------------------------------------
+
+# Rentabilidade (roa): media de 5% e desvio padrao de 2%
+roa <- 0.05 + 0.02 * z_roa
+
+# log(tam): logaritmo do tamanho da empresa, com media 10.5 e variacao moderada
+tam_log <- 10.5 + 0.6 * z_tam
+
+# Converte log(tam) para escala de nivel (distribuicao lognormal)
+tam <- exp(tam_log)
+
+# Alavancagem: combina os fatores z_alav e z_tam
+# Empresas maiores costumam ter mais acesso a credito (correlacao positiva)
+alav_bruta <- 0.40 + 0.12 * (0.6 * z_alav + 0.4 * z_tam)
+
+# Garante que a alavancagem fique no intervalo [5%, 90%]
+alav <- pmin(pmax(alav_bruta, 0.05), 0.90)
+
+# ---------------------------------------------------------------------------
+# 3) Construcao da variavel latente de risco de credito (r*)
+# ---------------------------------------------------------------------------
+# r* representa o risco verdadeiro (nao observavel) de cada empresa.
+# Os sinais dos coeficientes refletem a teoria financeira:
+#   - roa  -> efeito negativo (mais rentavel = menos risco)
+#   - alav -> efeito positivo (mais divida = mais risco)
+#   - tam  -> efeito negativo (empresas maiores = menos risco)
+# Um termo de erro e adicionado para capturar fatores nao observados.
+erro <- rnorm(n, sd = 1)
+
+# Combina os efeitos sistematicos e o erro aleatorio
+r_latente <- 0.40 - 8.0 * roa + 3.2 * alav - 0.40 * log(tam) + erro
+
+# ---------------------------------------------------------------------------
+# 4) Define as categorias observaveis de risco
+# ---------------------------------------------------------------------------
+# Divide o risco latente em tres categorias ordenadas:
+#   "Baixo", "Medio" e "Alto".
+# Os pontos de corte sao definidos pelos quantis 50% e 85%,
+# resultando em aproximadamente 50% de baixo risco,
+# 35% de medio risco e 15% de alto risco.
+pontos_corte <- quantile(r_latente, probs = c(0.50, 0.85))
+
+# Cria a variavel ordinal de risco observavel
+risco <- cut(r_latente,
+             breaks = c(-Inf, pontos_corte[1], pontos_corte[2], Inf),
+             labels = c("Baixo", "Medio", "Alto"),
+             ordered_result = TRUE)
+
+# ---------------------------------------------------------------------------
+# 5) Monta a base de dados final
+# ---------------------------------------------------------------------------
+# Combina as variaveis simuladas em um unico data frame
+dados <- data.frame(risco, roa, alav, tam)
+
+# Visualiza um resumo da base simulada
+glimpse(dados)
+```
+
+
+Agora, vamos estimar um modelo probit ordenado usando a função 
+`polr` do pacote MASS e obter estimativas dos efeitos 
+parciais médios usando a função `avg_slopes` do pacote marginaleffects.
+
+```{r}
+# 4) Estimação: Probit ordenado
+modelo_ord <- polr(risco ~ roa + alav + log(tam),
+                   data = dados,
+                   method = "probit",
+                   Hess   = TRUE)
+
+# efeitos parciais médios com erros-padrão robustos à heterocedasticidade
+avg_slopes(modelo_ord, by = TRUE, vcov = "HC0")
+```
+
+
+## Interpretação dos Resultados do Modelo Probit Ordenado
+
+### Alavancagem
+
+Empresas mais endividadas têm menor probabilidade de serem classificadas como de baixo risco** e 
+maior probabilidade de estarem nas categorias de risco médio ou alto.
+
+Um aumento de 1 ponto percentual na alavancagem está associado a:
+
+- uma redução de cerca de 122% na probabilidade de a empresa ser classificada como de baixo risco;
+- um aumento de aproximadamente 51% na probabilidade de risco médio;
+- e um aumento de 71% na probabilidade de risco alto.
+
+Esses resultados mostram que o endividamento exerce forte influência sobre o risco de crédito. 
+
+
+### Rentabilidade (ROA)
+
+Empresas mais rentáveis têm menor probabilidade de serem classificadas como de risco médio ou alto** e 
+maior probabilidade de serem classificadas como de baixo risco.
+
+Um aumento de 1 ponto percentual no ROA está associado a:
+
+- um aumento de cerca de 509% na probabilidade de a empresa ser classificada como de baixo risco;
+- uma redução de aproximadamente 212% na probabilidade de risco médio;
+- e uma redução de cerca de 297% na probabilidade de risco alto.
+
+Esses resultados indicam que a rentabilidade é o principal fator de redução do risco de crédito. 
+
+
+### Tamanho da empresa
+
+Empresas maiores apresentam leve aumento na probabilidade de serem classificadas como de baixo risco e 
+pequenas reduções nas probabilidades de risco médio e alto.
+
+Um aumento de 1% no tamanho da empresa (medido pelos ativos totais) está associado a:
+
+- um **aumento muito pequeno (aproximadamente 0,000466%)** na probabilidade de baixo risco;
+- uma **redução de 0,000186%** na probabilidade de risco médio;
+- e uma **redução de 0,000280%** na probabilidade de risco alto.
+
+Embora os efeitos sejam numericamente pequenos, o sinal é o esperado: empresas maiores 
+são vistas como **menos arriscadas**, devido à, por exemplo, diversificação de operações, 
+melhor acesso ao crédito e estruturas de governança mais consolidadas.
+
+
+
+# Modelo Logit Multinomial
+
+Os dados foram simulados para representar um problema clássico de escolha de portfólio de investimento, 
+no qual cada **investidor** precisa escolher entre três alternativas: 
+**Ações**, **Fundos de Investimento** e **Poupança**.
+
+O objetivo é modelar a probabilidade de escolha de cada alternativa em função das 
+características individuais do investidor (como idade, aversão ao risco e riqueza) e dos
+ atributos das carteiras (como retorno e risco esperados).
+
+A simulação segue a lógica dos **modelos de utilidade aleatória** utilizados em Finanças e Economia: \
+cada investidor escolhe a alternativa que maximiza sua **utilidade esperada**, determinada por uma 
+combinação dos atributos do investimento e do perfil do investidor.
+
+Com base nesses dados simulados, é possível estimar um **modelo logit multinomial**, que descreve o 
+comportamento de escolha dos investidores e permite interpretar como cada variável influencia a 
+probabilidade de optar por cada tipo de carteira
+
+```{r}
+# ------------------------------------------------------------
+# Modelo Logit Multinomial (nnet::multinom)
+# Aplicação: Escolha de carteira de investimento
+# ------------------------------------------------------------
+
+# Ajusta o formato numérico para exibir menos casas decimais
+options(digits = 5, scipen = 999)
+
+# ------------------------------------------------------------
+# Carrega os pacotes necessários
+# ------------------------------------------------------------
+library(dplyr)           # Manipulação de dados
+library(tidyr)           # Criação de bases no formato long/wide
+library(nnet)            # Estimação do modelo logit multinomial
+library(marginaleffects) # Cálculo de efeitos médios parciais
+
+# Define uma semente para reprodutibilidade dos resultados
+set.seed(123)
+
+# ------------------------------------------------------------
+# 1) Simulação dos dados
+# ------------------------------------------------------------
+
+# Número de investidores simulados
+n_invest <- 800
+
+# Alternativas disponíveis de investimento
+alternativas <- c("Acoes", "Fundos", "Poupanca")
+
+# Características individuais dos investidores
+# idade: idade média de 45 anos (dp = 12)
+# riqueza: distribuição lognormal (assimétrica à direita)
+# aversao: nível de aversão ao risco (média = 0)
+invest <- tibble(
+  id = 1:n_invest,
+  idade   = rnorm(n_invest, 45, 12),
+  riqueza = rlnorm(n_invest, meanlog = 12, sdlog = 0.6),
+  aversao = rnorm(n_invest, 0, 1)
+)
+
+# Atributos médios das alternativas
+# Cada tipo de carteira possui um retorno e risco base distintos
+base_alt <- tibble(
+  alt = alternativas,
+  retorno_base = c(0.11, 0.07, 0.03),  # retorno esperado
+  risco_base   = c(0.22, 0.12, 0.02)   # volatilidade (risco)
+)
+
+# Cria base em formato "long"
+# Cada linha representa uma combinação investidor-alternativa
+# Acrescenta pequenas variações aleatórias nos retornos e riscos
+dados_long <- invest |>
+  expand_grid(base_alt) |>
+  mutate(
+    retorno = retorno_base + rnorm(n(), 0, 0.01),
+    risco   = risco_base   + rnorm(n(), 0, 0.005)
+  )
+
+# ------------------------------------------------------------
+# 2) Função de utilidade e escolha simulada
+# ------------------------------------------------------------
+
+# Define os coeficientes (valores teóricos usados na simulação)
+# Estes parâmetros controlam a sensibilidade da utilidade a cada variável
+beta_ret  <- 12      # retorno aumenta utilidade
+beta_risk <- -35     # risco reduz utilidade
+ASC       <- c(Acoes = 0, Fundos = 0.4, Poupanca = -0.3) # constantes específicas por alternativa
+
+# Efeitos das características individuais
+delta_F   <-  0.6    # aversão favorece Fundos
+delta_P   <-  1.2    # aversão favorece Poupança
+eta_F     <-  0.006  # idade favorece Fundos
+eta_P     <-  0.015  # idade favorece Poupança
+lambda_F  <- -0.000006 # riqueza reduz preferência por Fundos
+lambda_P  <- -0.000020 # riqueza reduz preferência por Poupança
+
+# Termo de erro aleatório (heterogeneidade não observada)
+sigma_eps <- 0.30
+
+# Calcula a utilidade associada a cada investidor e alternativa
+dados_long <- dados_long |>
+  mutate(
+    asc  = recode(alt, !!!ASC),  # atribui a constante específica
+    util = asc +
+      beta_ret  * retorno +
+      beta_risk * risco +
+      (alt == "Fundos")   * (delta_F  * aversao + eta_F  * idade + lambda_F * riqueza) +
+      (alt == "Poupanca") * (delta_P  * aversao + eta_P  * idade + lambda_P * riqueza) +
+      rnorm(n(), 0, sigma_eps)  # adiciona o termo aleatório
+  )
+
+# Para cada investidor, identifica a alternativa com maior utilidade
+escolha <- dados_long |>
+  group_by(id) |>
+  summarise(choice = alt[which.max(util)], .groups = "drop")
+
+# ------------------------------------------------------------
+# 3) Reestruturação dos dados (formato wide)
+# ------------------------------------------------------------
+
+# Combina os dados das alternativas e das escolhas em formato wide
+# Cada investidor ocupa uma linha, com colunas para cada atributo por alternativa
+dados_wide <- dados_long |>
+  left_join(escolha, by = "id") |>
+  group_by(id) |>
+  summarise(
+    choice = first(choice),
+    retorno_acoes  = retorno[alt == "Acoes"],
+    risco_acoes    = risco[alt == "Acoes"],
+    retorno_fundos = retorno[alt == "Fundos"],
+    risco_fundos   = risco[alt == "Fundos"],
+    retorno_poup   = retorno[alt == "Poupanca"],
+    risco_poup     = risco[alt == "Poupanca"],
+    idade   = first(idade),
+    aversao = first(aversao),
+    riqueza = first(riqueza)
+  )
+
+# Visualiza a estrutura final da base de dados simulada
+glimpse(dados_wide)
+```
+
+
+
+Com os dados simulados, podemos estimar um modelo logit multinomial 
+usando a função `multinom` do pacote `nnet` e obter estimativas dos 
+efeitos parciais médios usando a função `avg_slopes` do pacote 
+`marginaleffects`.
+
+
+```{r}
+# ------------------------------------------------------------
+# 3) Estimação do modelo logit multinomial
+# ------------------------------------------------------------
+
+# Define o fator da variável dependente e base de referência
+dados_wide$choice <- relevel(factor(dados_wide$choice), ref = "Acoes")
+
+# Modelo logit multinomial
+modelo_multinom <- multinom(choice ~ retorno_fundos + risco_fundos +
+                              retorno_poup + risco_poup +
+                              idade + aversao + riqueza,
+                            data = dados_wide)
+
+# ------------------------------------------------------------
+# 4) Efeitos médios parciais (Average Partial Effects)
+# ------------------------------------------------------------
+
+# Cálculo dos efeitos médios parciais
+efeitos <- avg_slopes(modelo_multinom, by = TRUE, vcov = "HC1")
+efeitos
+```
+
+
+
+## Interpretação dos Resultados 
+
+O modelo logit multinomial representa a decisão de investidores entre três alternativas 
+de carteira — **Ações**, **Fundos** e **Poupança** — em função de atributos das carteiras 
+(retorno e risco esperados) e características dos investidores (idade, aversão ao risco e riqueza).
+
+Os **efeitos médios parciais**, indicam como variações marginais nas variáveis explicativas 
+alteram, em média, a **probabilidade de escolha** de cada alternativa em termos percentuais.
+
+
+### Aversão ao risco
+
+Investidores com maior aversão ao risco apresentam reduções expressivas nas probabilidades de 
+escolher **Ações** e **Fundos**, e um aumento acentuado na probabilidade de escolher **Poupança**.
+
+- A probabilidade de escolher ações diminui cerca de 1.610%.
+- A probabilidade de escolher fundos diminui cerca de 13.012%.
+- A probabilidade de escolher poupança aumenta cerca de 14.622%.
+
+Esses resultados confirmam o comportamento esperado: investidores 
+mais avessos ao risco preferem alternativas seguras, como a poupança, 
+reduzindo drasticamente sua exposição a ativos arriscados.
+
+
+### Idade
+
+O aumento da idade também reduz a propensão ao risco:
+
+- A probabilidade de escolher ações cai 0.033%;
+- A de escolher fundos cai 0.242%;
+- A de escolher poupança aumenta 0.274%.
+
+Assim, investidores mais velhos mostram preferência crescente por 
+alternativas conservadoras.
+
+
+### Retorno esperado
+
+Os efeitos dos retornos esperados são os mais intensos e coerentes 
+com a teoria da utilidade esperada:
+
+- Um aumento no retorno dos Fundos eleva em 252,8% a probabilidade 
+de o investidor escolher Fundos, reduzindo em 4,67% a probabilidade 
+de Ações e em 248,1% a de Poupança.
+
+- Um aumento no retorno da Poupança eleva em 235,9% a probabilidade 
+de escolher Poupança, reduzindo em 197,2% a de Fundos e em 38,7% 
+a de Ações.
+
+Esses resultados indicam que os investidores reagem fortemente à rentabilidade esperada, 
+deslocando sua preferência para a alternativa que oferece maior retorno.
+
+
+### 4. Risco
+
+O risco exerce efeito inverso ao retorno, reduzindo a probabilidade 
+de escolha da alternativa mais arriscada:
+
+* Um aumento no risco dos fundos reduz a probabilidade de escolher 
+Fundos em 1.016%, aumentando a de poupança em 918%.
+
+* Um aumento no risco da Poupança reduz sua probabilidade em 523%, 
+elevando as de Fundos e Ações em 558% e 35%, respectivamente.
+
+Esses resultados são consistentes com o **trade-off risco-retorno**: 
+conforme o risco cresce, os investidores deslocam suas escolhas para 
+carteiras mais seguras.
+
+
+### Riqueza
+
+A riqueza influencia tem um impacto reduzido, mas coerente.
+
+- A probabilidade de escolher Ações aumenta em 0.000015%;
+- A de Fundo, em 0.000336%;
+- A de Poupança diminui em 0.000351%.
+
+Isso sugere que investidores mais ricos tendem a preferir ligeiramente ativos de 
+maior risco e retorno esperado, reduzindo a participação em aplicações mais conservadoras.
+
+
+
+
+
+
+
+
+
+

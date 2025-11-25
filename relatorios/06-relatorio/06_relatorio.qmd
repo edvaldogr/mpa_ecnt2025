@@ -1,0 +1,566 @@
+---
+title: "Modelos de Regressão Linear com Séries Temporais em R"
+subtitle: "Modelo Estático"
+author: SEU NOME
+lang: pt
+format:
+  html:
+    theme: flatly
+    embed-resources: true
+    toc: true
+    number-sections: true
+    toc-depth: 3
+    self-contained: true
+crossref:
+  fig-prefix: 'Fig.'
+  tbl-prefix: 'Tab.'
+execute:
+  echo: true
+  message: false
+  warning: false
+  enabled: true
+editor: source
+bibliography: referencias.bib
+csl: associacao-brasileira-de-normas-tecnicas-ipea.csl
+---
+
+
+```{r}
+#| label: setup 
+
+# pacotes utilizados
+library(here)         # permite utilizar caminhos relativos no projeto
+library(tidyverse)    # metapacote que inclui readr, ggplot2, etc.
+library(readxl)       # para importar planilhas Excel
+library(xts)          # classe para armazenar series temporais
+library(tsibble)      # classe para armazenar series temporais
+library(dynlm)        # modelos de regressao com series temporais
+library(car)          # diagnostico de modelos de regressao
+library(lmtest)       # diagnostico de modelos de regressao
+library(whitestrap)   # teste de White para heterocedasticcidade
+library(sandwich)     # erros-padrao robustos à heterocedasticidade e 
+                      # à autocorrelaçõa nos resíduos
+```
+
+
+# Códigos dos slides da Aula 10
+
+Vamos simular um modelo de regressão liner simples estático, com erros autocorrelacionados, 
+especificamente, os erros seguirão um processo autorregressivo de primeira ordem (AR(1)):
+
+$$
+\begin{align*}
+Y_t &= \beta_0 + \beta_1 X_t + u_t \\
+u_t &= \phi u_{t-1} + \epsilon_t, \quad \epsilon_t \sim N(0, \sigma^2)
+\end{align*}
+$$
+
+Vamos simular um modelo com erros positivamente autocorrelacionados:
+
+$$
+\begin{align*}
+Y_t &= 2 + 0.5 X_t + u_t \\
+u_t &= 0.9 u_{t-1} + \epsilon_t, \quad \epsilon_t \sim N(0, 1)
+\end{align*}
+$$
+
+
+Código para a simulação:
+
+```{r}
+#| eval: true
+
+ # define o número de observações
+n <- 200
+
+# define os parâmetros da simulação
+beta0 <- 2       # intercepto
+beta1 <- 0.5    #  parâmetro da variável X
+phi <- 0.9       # parâmetro de autocorrelação AR(1)
+sigma <- 1       # desvio-padrão dos resíduos
+
+# fixa a semente para reprodutibilidade
+set.seed(123)
+
+# simula x: uma variável com tendência
+x <- 1:n + rnorm(n)
+
+# inicializa o vetor de resíduos 
+u <- numeric(n)
+
+# simula o primeiro resíduo
+u[1] <- rnorm(1, mean = 0, sd = sigma)
+
+# simula os resíduos autocorrelacionados (AR(1))
+for (t in 2:n) {
+  u[t] <- phi * u[t - 1] + rnorm(1, mean = 0, sd = sigma)
+}
+
+# simula y
+y <- beta0 + beta1*x + u
+
+# Converte x e y para uma série multivariada da classe ts
+# frequency = 12 -> dados
+dados_ts <- ts(cbind(x, y), start = c(1), frequency = 12)
+```
+
+```{r}
+# exibe as primeiras linhas
+head(dados_ts)
+```
+
+```{r}
+# esibe as últimas linhas
+tail(dados_ts)
+```
+
+
+Gráfico de Dispersão:
+
+```{r}
+# gráfico de dispersão do modelo simulado
+ggplot(dados_ts, aes(x = x, y = y)) +
+  geom_point(color = "steelblue", size = 2)
+```
+
+
+Estimação com a função lm:
+
+```{r}
+# Estimar o modelo estático 
+modelo_lm <- lm(y ~ x, data = dados_ts)
+
+# resultado da estimação do modelo
+summary(modelo_lm)
+```
+
+
+Estimação com a função dynlm
+
+```{r}
+# Estima o modelo estático usando dynlm com a série multivariada
+modelo_dynlm <- dynlm(y ~ x, data = dados_ts)
+
+# resultado da estimação do modelo
+summary(modelo_dynlm)
+```
+
+
+Teste de Durbin-Watson em R
+
+```{r}
+# função dwtest do pacote lmtest
+lmtest::dwtest(modelo_dynlm)
+```
+
+
+Teste de Breusch-Godfrey em R
+
+```{r}
+# função bgtest do pacote lmtest
+# o argumento order define a ordem da autocorrelação que será testada
+lmtest::bgtest(modelo_dynlm)
+```
+
+
+Erros-padrão de Newey-West em R
+
+```{r}
+
+# pacotes necessários
+library(lmtest)   # função coeftest()
+library(sandwich) # função NeweyWest()
+
+# erros-padrão dos estimadores MQO 
+coeftest(modelo_dynlm)
+
+# erros-padrão de Newey-West
+coeftest(modelo_dynlm, vcov = NeweyWest(modelo_dynlm))
+```
+
+
+
+# Importação dos Dados 
+
+Vamos importar o arquivo `macro.xls` disponibilizado por @brooks2019 
+usando o pacote `readxl`:
+
+```{r}
+## define o caminho para a planilha Excel contendo os dados
+path_macro <- here::here("dados/brutos/macro.xls")
+
+## importa os dados da planilha Excel
+dados_macro <- readxl::read_xls(path_macro)
+```
+
+Verificando a estrutura dos dados importados:
+
+```{r}
+## verifica a estrutura dos dados importados
+dplyr::glimpse(dados_macro)
+```
+
+
+Obtendo estatísticas básicas das variáveis:
+
+```{r}
+## analise exploratoria dos dados importados
+summary(dados_macro)
+```
+
+
+Verificando a classe dos dados importados:
+
+```{r}
+class(dados_macro)
+```
+
+
+
+# Séries Temporais em R
+
+## Classe `xts`
+
+Para ilustar como podemos converter os dados importados (`dados_macro`) 
+para uma série temporal multivariada da classe `xts`, analise o 
+seguinte código:
+
+```{r}
+# cria série com a função xts()
+macro_xts <- 
+ xts(dados_macro[, -1], order.by = as.Date(dados_macro$Date, format = "%b-%y"))
+
+# visualiza a série
+head(macro_xts)
+```
+
+
+```{r}
+plot(macro_xts[,"MICROSOFT"])
+```
+
+
+
+# Preparando os Dados para Análise
+
+@brooks2023rguide, no espírito da Teoria de Precificação por Arbitragem (APT), 
+estimou e analisou um modelo de regressão que buscou determinar se os retornos 
+mensais das ações da Microsoft podem ser explicados por mudanças inesperadas 
+em um conjunto de variáveis macroeconômicas e financeiras. Para isso, os autores 
+utilizaram o conjunto de dados `macro.xls`, que contém nove séries de dados 
+de variáveis financeiras e econômicas, além de uma variável de data, 
+abrangendo o período de março de 1986 até março de 2018 (ou seja, 385 
+observações mensais para cada uma das séries). 
+
+Em particular, o conjunto de variáveis financeiras e econômicas inclui o 
+preço da ação da Microsoft (`MICROSOFT`), o valor do índice S&P500 (`SANDP`), 
+o índice de preços ao consumidor (`CPI`), um índice de produção industrial 
+(`INDPRO`), as taxas de rendimento de Títulos do Tesouro de três meses 
+(`USTB3M`) e dez anos (`USTB10Y`), uma medida de oferta 
+monetária "estreita" (`M1SUPPLY`), uma série de crédito ao consumidor 
+(`CCREDIT`) e uma série de "spread de crédito" (`BMINUSA`). Este último é 
+definido como a diferença entre os  rendimentos médios anualizados de 
+um portfólio de títulos com classificação AAA e um portfólio de títulos 
+com classificação BAA.
+
+A primeira etapa foi gerar um conjunto de primeiras diferenças para cada uma 
+das variáveis, uma vez que a APT postula que os retornos das ações podem ser 
+explicados por mudanças inesperadas nas variáveis macroeconômicas, em vez de 
+seus níveis. O valor inesperado de uma variável pode ser definido como a 
+diferença entre o valor real (realizado) da variável e seu valor esperado. 
+
+A questão que surge, então, é como acreditamos que os investidores formaram 
+suas expectativas. Embora existam muitas maneiras de construir medidas de 
+expectativas, a mais simples é assumir que os investidores têm expectativas 
+ingênuas, acreditando que o valor da variável no próximo período será igual 
+ao valor atual. Sendo esse o caso, toda a mudança na variável de um período 
+para o outro é a mudança inesperada (já que se assume que os investidores 
+não esperam alterações).
+
+```{r}
+## calcula as primeiras diferenças das variáveis macroeconomicas
+dados_macro$inflation = c(NA, diff(log(dados_macro$CPI)))
+dados_macro$dinflation = c(NA, 100*diff(dados_macro$inflation))
+dados_macro$dprod = c(NA, diff(dados_macro$INDPRO))
+dados_macro$dmoney = c(NA, diff(dados_macro$M1SUPPLY))
+dados_macro$dcredit = c(NA, diff(dados_macro$CCREDIT))
+dados_macro$dspread = c(NA, diff(dados_macro$BMINUSA))
+dados_macro$rterm = c(NA, diff(dados_macro$USTB10Y - dados_macro$USTB3M))
+
+# calcula os retornos excedentes (logaritmicos)
+dados_macro$retexc_sp500 = c(NA, 100*diff(log(dados_macro$SANDP))) - dados_macro$USTB3M/12
+dados_macro$retexc_msoft = c(NA, 100*diff(log(dados_macro$MICROSOFT))) - dados_macro$USTB3M/12
+```
+
+
+Obtendo estatísticas básicas das variáveis:
+
+```{r}
+summary(dados_macro)
+```
+
+
+```{r}
+dados_macro_limpos <- na.omit(dados_macro)
+```
+
+
+# Modelo de Regressão Linear com Séries Temporais 
+
+Em econometria, as regressões com séries temporais são frequentemente ajustadas 
+pelo método dos mínimos quadrados ordinários (MQO). Assim, em princípio, modelos de 
+regressão linear envolvendo séries temporais podem ser estimados como qualquer outro 
+modelo de regressão linear usando a função `lm() `se o conjunto de dados for 
+mantido em uma data.frame. 
+
+No entanto, esse normalmente não é o caso de dados de séries temporais, que 
+são mais convenientemente armazenadas em uma das classes de séries temporais 
+da linguagem R , tais como `ts`, `zoo`, `xts` ou `tsibble`.
+
+Entretanto, o uso de `lm()` com dados em classes de séries temporais 
+tem duas desvantagens: 
+
+1. Para valores ajustados ou residuais, as propriedades da série temporal 
+não são, por padrão, preservadas, e: 
+
+2. lags ou diferenças não podem ser especificados diretamente na fórmula da 
+função `lm()`
+
+Alternativamente, o pacote `dynlm` (ZEILEIS (2019)) fornece a função 
+`dynlm()`, que tenta superar os problemas descritos acima.  Para estimar os 
+parâmetros do modelo APT deste exercício, a sintáxe da fórmula do modelo é a 
+mesma da função `lm()`, sendo que a função `dynlm` aceita objetos da 
+classe `ts` ou `zoo`.
+
+Vamos criar uma série temporal multivariada da classe `ts` a partir da 
+data frame/tibble `dados_macro`:
+
+```{r}
+macro_ts <- ts(dados_macro[, -1], start = c(1986, 3), frequency = 12)
+class(macro_ts)
+```
+
+
+Poderíamos criar facilmente uma serie temporal multivariada da classe 
+`tsibble` a partir do `macro_ts`:
+
+```{r}
+macro_tsibble <- as_tsibble(macro_ts)
+macro_tsibble
+```
+
+
+
+
+## Modelo Estático
+
+Agora, podemos estimar o modelo APT usando a função `dynlm` do pacote 
+de mesmo nome:
+
+
+```{r}
+#| eval: true
+
+modelo_apt <- dynlm(retexc_msoft ~ retexc_sp500 + dprod + dcredit + 
+                                   dinflation + dmoney + dspread + 
+                                   rterm, 
+                     data = macro_ts)
+
+summary(modelo_apt)
+```
+
+
+Reserve alguns minutos para examinar os principais resultados da regressão. 
+Quais das variáveis têm um impacto estatisticamente significativo nos 
+retornos excedentes da Microsoft? Usando seu conhecimento sobre os efeitos 
+do ambiente financeiro e macroeconômico nos retornos das ações, verifique se 
+os coeficientes apresentam os sinais esperados e se os tamanhos dos parâmetros 
+são plausíveis. A estatística F da regressão (última linha) tem o valor de 
+28,24. Lembre-se de que esse teste avalia a hipótese nula de que todos os 
+parâmetros estimados são conjuntamente iguais a zero. O valor p de 
+< 2.2e-16 indica que essa hipótese nula deve ser rejeitada.
+
+No entanto, há várias estimativas de parâmetros que não são 
+significativamente diferentes de zero – especificamente aquelas das variáveis 
+`dprod`, `dcredit`, `dmoney` e `dspread`. 
+
+Vamos testar a hipótese nula de que os parâmetros dessas quatro variáveis 
+são conjuntamente iguais a zero utilizando um teste F. Novamente, 
+utilizamos a função `linearHypothesis` do pacote `car`, especificando 
+as restrições com os nomes das variáveis.
+
+```{r}
+car::linearHypothesis(modelo_apt,c("dprod = 0","dcredit = 0","dmoney = 0",
+                              "dspread = 0"))
+```
+
+A estatística resultante do teste F segue uma distribuição F(4, 375), 
+pois há 4 restrições, 383 observações utilizáveis e oito parâmetros a 
+serem estimados na regressão irrestrita. O valor da estatística F é 0,4139 
+com valor p de 0,7986, o que sugere que a hipótese nula de que as 
+estimativas dos parâmetros são conjuntamente iguais a zero, não pode ser 
+rejeitada. Os parâmetros de `rterm` e `dinflation` são significativos 
+ao nível de 10%. Portanto, eles não foram incluídos neste teste F e as 
+variáveis são mantidas.
+
+
+## Diagnóstico
+
+
+### Teste de Especificação da Forma Funcional
+
+```{r}
+resettest(modelo_apt, power = 2:4, type = "fitted")
+```
+
+A estatística F tem três graus de liberdade, uma vez que $\hat{y}^2$, 
+$\hat{y}^3$ e $\hat{y}^4$ estão incluídos nas regressões auxiliares. 
+Com um valor F de 0,9938 e um valor-p correspondente de 0,3957, o resultado 
+do teste RESET implica que não podemos rejeitar a hipótese nula de que a forma funcional 
+linear escolhida para o modelo esteja incorreta.
+
+
+### Teste de Heterocedasticidade dos Resíduos 
+
+
+Vamos verificar se há evidências de heterocedasticidade nos resíduos, 
+executando o teste de White usando a função `white_test()` do 
+pacote `whitestrap`:
+
+```{r}
+white_test(modelo_apt)
+```
+
+Como o valor-p do teste foi de 0.2921, os dados não fornecem evidências 
+para rejeitar a hipótese nula de que os resíduos do modelo não 
+apresentam heterocedasticidade nos resíduos.
+
+
+### Erros-Padrão Robustos à Heterocedasticidade de White
+
+O objetivo desta seção é mostrar como obter erros padrão robustos à 
+heterocedasticidade, caso fosse necessário.  
+
+O pacote `sandwich` fornece várias funções que calculam automaticamente 
+estimadores robustos à heterocedasticidade da matrize de covariâncias 
+dos parâmetros (ou de  variâncias-covariâncias). 
+
+Portanto, após instalar e carregar o pacote `sandwich`, use a função 
+`vcovHC()` para obter estimativas consistentes da matriz de covariância,
+ajustada para heterocedasticidade.
+
+A função `vcovHC()` é chamada dentro da função `coeftest` da seguinte 
+maneira:
+
+```{r}
+coeftest(modelo_apt, vcov = vcovHC(modelo_apt, type ="HC1"))
+```
+
+Onde o argumento `type` especifica os erros padrão. Para obter o estimador 
+sugerido por White (1980), devemos usar "`HC0`". As alternativas possíveis 
+são "`HC1`", "`HC2`" e "`HC3`", que estão relacionadas a "`HC0`", mas 
+ajustadas por diferentes fatores. O resultado anterior mostra os erros 
+padrão de White com um ajuste para o grau de liberdade `k` ("`HC1`")
+
+
+### Testes de Autocorrelação dos Resíduos
+
+Inicialmente, vamos analisar o gráfico da série temporal dos 
+resíduos do modelo estimado:
+
+```{r}
+# extrai os resíduos do modelo estimado
+residuos <- residuals(modelo_apt)
+
+# Plotar a série temporal dos resíduos
+plot(residuos, type = "l", 
+     main = "Gráfico dos Resíduos x Tempo", 
+     ylab = "Resíduos", 
+     xlab = "Tempo")
+```
+
+A análise do gráfico dos resíduos, aparentemente, não exibe nenhum 
+padrão típico e aparnete de autocorrelação, positiva ou negativa, 
+nos resíduos.
+
+Para testar formalmente a presença de autocorrelação nos resíduos, o 
+teste de Durbin-Watson pode ser executado usando o função `dwtest()` do 
+pacote `lmtest`:
+
+```{r}
+dwtest(modelo_apt)
+```
+
+Como o valor-p do teste foi de 0,8176, os dados não fornecem evidências 
+para rejeitar a hipótese nula de que os resíduos do modelo não 
+apresentam autocorrelação de primeira ordem nos resíduos, ao nível de 
+1% de significância.
+
+Um teste alternativo para autocorrelação é o teste de Breusch-Godfrey. 
+Ele é um teste mais geral para autocorrelação do que o teste de 
+Durbin-Watson e nos permite testar autocorrelação de ordem superior. 
+
+Ele também é implementado no pacote **lmtest**, na função 
+`bgtest()`. Novamente, sua execução é simples, sendo necessário 
+apenas alterar o argumento `order`, que é 1 por padrão, para permitir 
+a inclusão de mais defasagens. Definindo `order` como 10, temos:
+
+```{r}
+bgtest(modelo_apt, order = 10)
+```
+
+Como o valor-p do teste foi de 0.9062, os dados não fornecem evidências 
+para rejeitar a hipótese nula de que os resíduos do modelo não 
+apresentam autocorrelação de até a décima ordem nos resíduos, ao nível 
+de 1% de significância.
+
+Comparando os resultados da regressão para o modelo no estilo APT, 
+utilizando erros padrão robustos com aqueles que utilizam erros 
+padrão ordinários, observamos que as mudanças na significância são 
+apenas marginais. Naturalmente, apenas os erros padrão foram alterados, 
+e as estimativas dos parâmetros permanecem idênticas às estimadas 
+anteriormente. No entanto, isso não resultou em mudanças nas conclusões 
+sobre a significância, ou não, de qualquer variável.
+
+
+### Erros-Padrão Robustos à Heterocedasticidade e à Autocorrelação de Newey-West
+
+Nesta subseção, mostramos como obter os erros padrão robustos à heterocedasticidade 
+e autocorrelação de Newey-West, caso fosse necessário. 
+
+Para isso, em vez de utilizar **vcovHC**, usamos a função **NeweyWest**, 
+também fornecida pelo pacote **sandwich**: 
+
+```{r}
+coeftest(modelo_apt, vcov = NeweyWest(modelo_apt, lag = 6, adjust = T, 
+                                        prewhite = F))
+```
+
+
+Compare se há diferença em relação às estimativas dos parâmetros significativamente 
+diferentes de zero do obtido usando erros-padrão comuns de MQO.
+
+
+
+# Referências
+
+::: {#refs}
+:::
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

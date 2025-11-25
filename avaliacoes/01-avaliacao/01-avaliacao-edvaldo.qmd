@@ -21,44 +21,154 @@ execute:
 
 **a.** 
 
-
+Um estimador viesado significa que, em média, ele não acerta o verdadeiro valor
+do parâmetro.
+Em termos simples: se repetirmos o experimento muitas vezes (ou coletarmos 
+muitas amostras), a média das estimativas obtidas não coincide com o valor real
+do parâmetro populacional $\beta$.
 
 **b.** 
 
+O viés de um estimador $\hat{\beta}$ é definido formalmente como a diferença 
+entre o seu valor esperado e o verdadeiro valor do parâmetro $\beta$, ou seja:
+
+$$\text{Viés}(\hat{\beta}) = E[\hat{\beta}] - \beta$$
+
+Se $E[\hat{\beta}] = \beta$ então o valor é não viesado. 
+
+Se $E[\hat{\beta}] > \beta$ então o valor é viesado para cima (superestimando). 
+
+Se $E[\hat{\beta}] = \beta$ então o valor é viesado para baixo (subestimando). 
 
 
 **c.** 
 
+O viés é importante porque indica se nossas inferências estão sistematicamente 
+incorretas.
+Um estimador viesado não fornece, em média, o valor verdadeiro — mesmo com 
+amostras grandes, pois podemos persistir no erro.
+
+Em finanças, isso pode ser crítico. Por exemplo, no modelo CAPM, um estimador
+viesado de $\beta$ pode levar a decisões de investimento incorretas. 
+Previsões de risco ou retorno podem ser sistematicamente superestimadas ou 
+subestimadas.
+
+Portanto, queremos estimadores não viesados porque eles garantem precisão 
+média — ou seja, a longo prazo, o erro médio é zero.
 
 
 **d.** 
 
+Usando a fórmula da definição do viés e calculando para cada estimador, temos:
+
+$$\text{Viés}(\hat{\beta}) = E[\hat{\beta}] - \beta$$
+
+Estimador $A$: $\text{Viés}(A) = E[A] - \beta = (\beta - 3) - \beta = -3$
+
+Estimador $B$: $\text{Viés}(B) = E[B] - \beta = \beta - \beta = 0$
+
+Estimador $C$: $\text{Viés}(C) = E[C] - \beta = \beta - \beta = 0$
+
+Logo, os estimadores $B$ e $C$ são não viesados pois $E[\hat{\beta}] = \beta$. 
 
 
 **e.** 
 
+A variância de um estimador é representada visualmente pela dispersão ou 
+"largura" de sua distribuição amostral. Um estimador com baixa variância terá 
+uma distribuição mais "alta e estreita", indicando que as estimativas estão 
+mais concentradas em torno de sua média.
 
+Observando a Figura 1 podemos notar que a distribuição do estimador $A$ é a 
+mais estreita e pontiaguda de todas, o que indica que ele possui a menor 
+variância.
 
 **f.** 
 
+O "melhor" estimador não viesado é aquele que, além de não ser viesado
+($E[\hat{\beta}] = \beta$), também possui a menor variância entre todos os 
+estimadores não viesados. 
 
+Os estimadores não viesados são $B$ e $C$. Comparando a dispersão de suas 
+distribuições, a curva do estimador $B$ é visivelmente mais estreita e 
+concentrada que a do estimador $C$. Isso significa que
+$\text{Var}(B) < \text{Var}(C)$. Portanto, $B$ é o melhor estimador não viesado.
 
 **g.** 
 
+O erro padrão de um estimador ($\text{EP}(\hat{\beta})$) é o desvio padrão de 
+sua distribuição amostral. Matematicamente, é a raiz quadrada da variância do 
+estimador, dada pela fórmula:
+
+$$\text{EP}(\hat{\beta}) = \sqrt{\text{Var}(\hat{\beta})}$$
+
+Intuitivamente, o erro padrão mostra quanto as estimativas de $\hat{\beta}$ 
+variam em torno do valor esperado quando repetimos o experimento diversas vezes
+com amostras diferentes.
 
 
 **h.** 
 
+Resposta: Verdadeiro.
+
+Explicação:
+
+A ausência de viés (não-viesado) significa que:
+
+$$E[\hat{\beta}] = \beta$$
+
+Essa é uma propriedade de amostras finitas, pois se aplica à distribuição do 
+estimador para um tamanho fixo de amostra $n$.
+
+A consistência é uma propriedade assintótica:
+
+$$\hat{\beta}_n \xrightarrow{p} \beta \newline \text{ quando } n \to \infty$$
+
+Ou seja, à medida que a amostra cresce indefinidamente, o estimador converge 
+(em probabilidade) para o verdadeiro valor $\beta$.
 
 
 **i.** 
+
+Um estimador consistente é aquele que, à medida que o tamanho da amostra 
+cresce, tende a produzir valores cada vez mais próximos do verdadeiro parâmetro
+populacional $\beta$.
+
+Ou seja:
+
+$$\lim_{n \to \infty} P(\left|\hat{\beta}_n - \beta\right| < \varepsilon) = 1, \quad \forall \; \varepsilon > 0$$
+
+Isto é: conforme $n$ aumenta, a probabilidade de que o estimador esteja muito 
+próximo do valor verdadeiro $\beta$ tende a 1.
+
+Se o estimador é consistente, coletar mais dados sempre melhora a precisão da 
+estimativa — o “erro médio” desaparece com amostras grandes.
 
 
 
 **j.** 
 
+Escolheria o estimador $B$ (viesado e consistente).
 
+Justificativa:
 
+Embora o estimador $A$ seja não viesado (em média acerta o valor real), 
+ele é inconsistente pois não converge para o verdadeiro valor de $\beta$, mesmo
+com amostras grandes.  Isso significa que, mesmo que eu colete uma quantidade 
+imensa de dados, não há garantia de que minha estimativa se aproximará do valor 
+verdadeiro. Aumentar a amostra não melhora a qualidade da estimativa, o que é 
+um problema grave.
+
+O estimador $B$, mesmo sendo viesado, é consistente. Isso significa que, com o 
+aumento de $n$, o viés tende a $\beta$:
+$$\lim_{n \to \infty} E[\hat{\beta}_B] = \beta$$
+Ou seja, a consistência é mais importante que o viés em pequenas amostras, 
+pois o objetivo é obter estimativas que convergem para o verdadeiro parâmetro 
+com amostras grandes. Em econometria, onde frequentemente trabalhamos com 
+grandes conjuntos de dados, a consistência nos dá a confiança de que nossos 
+resultados são confiáveis. Portanto, um viés que desaparece em amostras grandes 
+é um preço pequeno a pagar pela garantia de que nos aproximaremos da verdade 
+com dados suficientes.
 
 
 ## Questão 2 
@@ -67,15 +177,49 @@ execute:
 
 **a.1.** Verificando se o estimador **a** é não viesado
 
+Estimador $a$: $a = \frac{1}{n} \sum_{i=1}^{n} Y_i + 1,5$
+
+Sabemos que $E[Y_i] = \mu$. Logo:
+
+$$E[a] = E \left[ \frac{1}{n}\sum_{i=1}^{n}Y_{i} + 1,5 \right] = E \left[ \frac{1}{n}\sum_{i=1}^{n}Y_{i} \right] + 1,5 = \frac{1}{n}\sum_{i=1}^{n}E[Y_{i}] + 1,5 = \frac{1}{n}(n\mu) + 1,5 = \mu + 1,5$$
+
+Como $E[a] = \mu + 1,5 > \mu$, o estimador $a$ é viesado e seu viés é de:
+$\text{Viés}(a) = +1,5$.
 
 
-**a.1.** Verificando se o estimador **b** é não viesado
+**a.2.** Verificando se o estimador **b** é não viesado
 
+Estimador $b$: $$b = \frac{1}{n}\sum_{i=1}^{n}Y_{i} + \frac{1}{n}\sum_{i=1}^{5}Y_{i}$$
 
+Sabemos que $E[Y_i] = \mu$. Logo:
+
+$$E[b] = E \left[ \frac{1}{n}\sum_{i=1}^{n}Y_{i} + \frac{1}{n}\sum_{i=1}^{5}Y_{i} \right] = \frac{1}{n}\sum_{i=1}^{n}E[Y_{i}] + \frac{1}{n}\sum_{i=1}^{5}E[Y_{i}] = \frac{1}{n}(n\mu) + \frac{1}{n}(5\mu) = \mu + \frac{5\mu}{n}$$
+
+Como $E[b] = \mu +\frac{5\mu}{n} > \mu$, o estimador $b$ é viesado e seu viés é de: $\text{Viés}(b) = \frac{5\mu}{n}$.
 
 **b.** 
 
+Analisando a consistência do estimador $a$:
 
+Como $\text{Viés}(a) = +1,5$, calculando o limite do viés quando $n \to \infty$,
+temos:
 
+$$\lim_{n \to \infty} (\text{Viés}(a)) = \lim_{n \to \infty} (1,5)=1,5$$
+
+Como o viés não converge para zero, o estimador $a$ não converge para o 
+verdadeiro valor $\mu$. Ele sempre estará, em média, 1,5 acima do valor real, 
+independentemente do quão grande seja a amostra. Portanto, o estimador $a$ não é
+consistente.
+
+Analisando a consistência do estimador $b$:
+
+Como $\text{Viés}(b) = \frac{5\mu}{n}$, calculando o limite do viés quando $n \to \infty$,
+temos:
+
+$$\lim_{n \to \infty} (\text{Viés}(b)) = \lim_{n \to \infty} (\frac{5\mu}{n})=0$$
+
+Como o viés converge para zero, o estimador $b$ converge para o 
+verdadeiro valor $\mu$ para grandes amostras. Portanto, o estimador $b$ é
+consistente.
 
 
