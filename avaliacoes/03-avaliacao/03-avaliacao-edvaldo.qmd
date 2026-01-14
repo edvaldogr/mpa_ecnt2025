@@ -1,0 +1,755 @@
+---
+lang: pt-BR
+title: "Resolução da Avaliação 3"
+subtitle: "Econometria Aplicada à Finanças - 2025 <br> Mestrado em Administração"
+author: "EDVALDO GARCIA REZENDE"
+date: 2025-07-24
+date-format: long
+title-block-banner: "#27445C"
+format:
+  html:
+    theme: flatly
+    embed-resources: true
+    page-layout: article
+    toc: true
+    toc-location: left
+execute: 
+  echo: true
+  message: false
+  warning: false
+engine: knitr
+editor: source
+---
+
+```{r}
+#| label: setup
+#| echo: false
+
+# para instalar o pacote POE5Rdata, instale o pacote 
+# devtools e copie/cole no console R:
+# devtools::install_github("ccolonescu/POE5Rdata")
+
+# carrega todos os pacotes listados.
+# e instala pacotes faltantes, se necessário.
+pacman::p_load(
+    tidyverse,  # metapacote: contém os pacotes readr e dplyr
+    POE5Rdata,  # para usar os dados capm5
+    broom,      # para usar a funcao tidy
+    sandwich,   # contém funções para estimadores robustos à heteroc. e autocor. 
+    lmtest,     # para usar as funcoes resettest e coeftest 
+    car,        # para usar a funcao linearHypothesis
+    whitestrap, # para usar a função white_test
+    dynlm,     # para usar a função dynlm
+    DescTools   # para usar a função Jarque-Bera
+)
+
+# carrega os dados capm5 do pacote POE5Rdata
+data("capm5")
+```
+
+
+
+
+# Questão 1
+
+
+## A
+
+a. Hipótese H2
+
+Esta hipótese serve para garantir que os coeficientes de regressão 
+(os $\beta_k$'s) possam ser estimados de forma única. A colinearidade perfeita
+significa que pelo menos uma variável explicativa ($x_k$) pode ser expressa 
+como uma combinação linear exata das outras variáveis explicativas. 
+
+
+A consequência dessa violação  é que o estimador de Mínimos Quadrados 
+Ordinários (MQO) não pode ser calculado .
+
+Uma solução é identificar e remover a variável explicativa redundante ou a que 
+causa a colinearidade perfeita.
+
+b. Hipótese H3
+
+Essa hipótese garante a exogeneidade estrita das variáveis explicativas em 
+relação ao termo de erro. Isso significa que as variáveis $x_k$ são 
+independentes ou não correlacionadas com o termo de erro $e_t$. 
+
+A consequência dessa violação é que O estimador de MQO $(\hat{\beta}_{MQO})$ 
+será viesado e inconsistente. 
+
+Entre as possíveis soluções, podemos usar: Variáveis Instrumentais (VI), pois se
+houver um instrumento forte disponível o estimador de VI é consistente; e 
+Mínimos Quadrados em Dois Estágios (MQ2E).
+
+
+c. Hipótese H4
+
+Essa hipótese garante a homocedasticidade (variância constante) e variância 
+finita do termo de erro condicionada às variáveis explicativas. Isso significa 
+que a dispersão dos erros é a mesma para todos os valores das variáveis $x_k$
+
+A consequência dessa violação é a Heterocedasticidade. Ou seja, o estimador de 
+MQO $(\hat{\beta}_{MQO})$ permanece não viesado e consistente, mas não é o 
+Mínimo Quadrado Ótimo. As fórmulas usuais dos erros-padrão dos coeficientes são 
+viesadas (em geral subestimadas), levando a testes $t$ e $F$ inválidos e 
+conclusões de significância estatística erradas.
+
+Entre as soluções, temos os testes de Erros-Padrão Robustos à Heterocedasticidade
+(como o Teste de White, Huber-White) pois permite que a inferência seja válida 
+mesmo na presença de heterocedasticidade.
+
+d. Hipótese H5
+
+Essa hipótese garante a não autocorrelação dos erros, condicionada às variáveis 
+$x_k$. Isso significa que o erro de uma observação ($e_t$) não está 
+correlacionado com o erro de outra observação ($e_i$).
+
+A consequências dessa violação é a Autocorrelação (ou correlação serial), que 
+ocorre quando os erros são correlacionados ao longo do tempo em séries 
+temporais. A autocorrelação nos resíduos pode ser causada por dinâmica mal 
+especificada ou omissão de variáveis relevantes que são autocorrelacionadas.
+
+Entre as soluções, temos os testes de Erros-Padrão Robustos a Heterocedasticidade
+e Autocorrelação (como o teste HAC de Newey-West) ou Métodos de Estimação 
+Generalizados (como o Mínimos Quadrados Generalizados - MQG).
+
+
+
+
+# Questão 2
+
+## A
+
+
+```{r}
+# define o caminho relativo do arquivo
+# subsitua caminho pelo caminho correto do seu projeto.
+caminho_dados <- here::here("dados/limpos/ff_br_carteira.rds")
+
+# importa o arquivo ff_br_carteira.rds
+dados_carteira <- readr::read_rds(caminho_dados)
+
+# escreva o pipeline solicitado a partir daqui
+
+
+dados_carteira <- dados_carteira %>%
+  mutate(
+    ret_carteira_excedente = ret_carteira - risk_free
+  )
+
+# Exibe o resumo da tibble (estrutura e tipos)
+glimpse(dados_carteira)
+```
+
+O objeto `dados_carteira` tem 180 observações e 9 variáveis.
+
+
+## B
+
+
+```{r}
+
+
+# Estimação do Modelo CAPM (Mínimos Quadrados Ordinários - MQO)
+modelo_capm <- lm(
+  ret_carteira_excedente ~ rm_minus_rf,
+  data = dados_carteira
+)
+
+# para visualizar o R^2 ajustado
+r2_ajustado_capm <- summary(modelo_capm)$adj.r.squared
+cat("R2 Ajustado do CAPM:", r2_ajustado_capm, "\n\n")
+
+# Apresentação da Tabela de Resultados 
+tabela_capm <- broom::tidy(modelo_capm, conf.int = TRUE)
+print(tabela_capm)
+
+```
+
+
+
+## C
+
+```{r}
+
+
+# Estimação do Modelo Fama-French 3 Fatores (MQO)
+modelo_ff3 <- lm(
+  ret_carteira_excedente ~ rm_minus_rf + smb + hml,
+  data = dados_carteira
+)
+
+# Exibição do R2 Ajustado 
+r2_ajustado_ff3 <- summary(modelo_ff3)$adj.r.squared
+cat("R2 Ajustado do Fama-French 3 Fatores:", r2_ajustado_ff3, "\n\n")
+
+# Apresentação da Tabela de Resultados
+tabela_ff3 <- broom::tidy(modelo_ff3, conf.int = TRUE)
+print(tabela_ff3)
+```
+
+
+
+## D
+
+```{r}
+
+# Estimação do Modelo de 5 Fatores (NEFIN)
+modelo_ff5_nefin <- lm(
+  ret_carteira_excedente ~ rm_minus_rf + smb + hml + wml + iml,
+  data = dados_carteira
+)
+
+# Exibição do R2 Ajustado 
+r2_ajustado_ff5_nefin <- summary(modelo_ff5_nefin)$adj.r.squared
+cat("R2 Ajustado do Modelo de 5 Fatores (NEFIN):", r2_ajustado_ff5_nefin, "\n\n")
+
+# Apresentação da Tabela de Resultados 
+tabela_ff5_nefin <- tidy(modelo_ff5_nefin, conf.int = TRUE)
+print(tabela_ff5_nefin)
+```
+
+
+
+## E
+
+O Modelo de 5 Fatores (NEFIN) apresentou o maior valor de $R^2$ Ajustado, 
+sendo, portanto, o modelo com o melhor poder explicativo dentre os três estimados.
+
+```{r}
+cat("R2 Ajustado do CAPM:", r2_ajustado_capm, "\n\n")
+cat("R2 Ajustado do Fama-French 3 Fatores:", r2_ajustado_ff3, "\n\n")
+cat("R2 Ajustado do Modelo de 5 Fatores (NEFIN):", r2_ajustado_ff5_nefin, "\n\n")
+```
+
+
+O $R^2$ ajustado mede a proporção da variação total nos retornos excedentes da 
+carteira que é explicada pelos fatores de risco incluídos no modelo.
+
+O uso do $R^2$ ajustado (em vez do $R^2$ simples) é crucial porque ele penaliza 
+a inclusão de variáveis explicativas adicionais que não contribuem 
+significativamente para a capacidade de explicação do modelo.
+
+Logo, o Modelo de 5 Fatores (NEFIN) (MKT, SMB, HML, WML, IML) consegue explicar 
+aproximadamente `r round(100*r2_ajustado_ff5_nefin, 2)`$\%$ da variação dos retornos 
+excedentes da carteira. O fato de ele ter o maior $R^2$ ajustado indica que os
+fatores adicionais de Momentum (WML) e Iliquidez (IML) contribuem de forma 
+relevante e estatisticamente válida para aumentar o poder explicativo, superando
+a penalidade imposta pela inclusão de mais regressores.
+
+
+## F
+
+
+**1.** 
+
+O modelo de 5 fatores é dado por:
+$$\text{ret\_carteira\_excedente}_{t}=\alpha+\beta_{\text{mkt}}\text{rm\_minus\_rf}_{t}+\beta_{\text{smb}}\text{smb}_{t}+\beta_{\text{hml}}\text{hml}_{t}+\beta_{\text{wml}}\text{wml}_{t}+\beta_{\text{iml}}\text{iml}_{t}+e_{t}$$
+
+Os resultados dos coeficientes e valores-p são:
+
+```{r}
+tabela_ff5_nefin %>%
+  select(term, estimate, p.value) %>%
+  mutate(
+    estimate = round(estimate, 4),
+    p.value = round(p.value, 4)
+  )
+```
+
+
+
+O $\alpha$ de Jensen (Intercept) é de `r round(tabela_ff5_nefin$estimate[1],4)`
+(ou `r 100*round(tabela_ff5_nefin$estimate[1],4)` $\%$ ao mês).
+
+O $p$-valor associado ao $\alpha$ é `r round(tabela_ff5_nefin$estimate[1],4)`, 
+que é maior que $0.05$ (nível de significância padrão).
+Logo, o $\alpha$ não é estatisticamente diferente de zero.
+
+Isso sugere que o retorno da carteira (PETR4, VALE3, ITUB4) é adequadamente 
+explicado pela exposição aos cinco fatores de risco sistemático do modelo 
+(MKT, SMB, HML, WML, IML). Não há evidência estatística de retorno anormal
+(desempenho superior ou inferior ao esperado).
+
+
+**2.** 
+
+O beta estimado para a carteira é o beta de mercado ($\beta_{mkt}$, 
+coeficiente de $\text{rm\_minus\_rf}$).
+
+O valor de $\hat{\beta}_{mkt} \approx$ `r round(tabela_ff5_nefin$estimate[2],4)`,
+ e altamente significativo com $p$-valor $\approx$ `r tabela_ff5_nefin$p.value[2]`).
+
+O valor de $1.14$ é maior que $1$, o que classifica a carteira como tendo um 
+perfil agressivo em relação ao mercado.
+
+Isso significa que, em média, a carteira tende a amplificar os movimentos do 
+prêmio de risco de mercado. Para cada aumento de $1$ ponto percentual no prêmio 
+de risco de mercado, o retorno excedente da carteira aumenta em aproximadamente 
+$1.14$ pontos percentuais.
+
+
+**3.** 
+
+
+Os fatores estatisticamente diferentes de zero (onde $p$-valor $\le 0.05$) são: $\text{rm\_minus\_rf}$, $\text{hml}$, $\text{wml}$ e $\text{iml}$. O fator 
+$\text{smb}$ não é significativo ($p$-valor $= 0.61134$) e, portanto, não é 
+relevante para explicar os retornos da carteira.
+
+Analisando cada $\beta$, temos:
+
+a. $\beta_{mkt}$ (Mercado) = $1.137$ (Positivo e Significativo): A carteira se 
+move na mesma direção que o mercado, com movimentos amplificados (perfil 
+agressivo).
+
+b. $\beta_{hml}$ (Valor) = $0.373$ (Positivo e Significativo): A carteira tem 
+exposição a ações de valor (value stocks), que são empresas com alto índice
+book-to-market. O retorno da carteira se beneficia positivamente do prêmio de 
+valor.
+
+c. $\beta_{wml}$ (Momentum) = $-0.200$ (Negativo e Significativo): A carteira 
+apresenta um comportamento contrário ao momentum. Ela tende a ter exposição a 
+ações que tiveram desempenho recente ruim.
+
+d. $\beta_{iml}$ (Iliquidez) = $-0.282$ (Negativo e Significativo): A carteira 
+tem exposição a ativos mais líquidos. Em vez de se beneficiar do prêmio de 
+iliquidez (retorno adicional para ativos menos líquidos), a carteira se move de 
+forma oposta ao fator IML.
+
+O fator de risco de mercado é o ($\text{rm\_minus\_rf}$), pois 
+é o fator com maior impacto nos retornos excedentes da carteira ($1.137$).
+
+
+
+## G
+
+
+**1.** 
+
+```{r}
+
+# Teste RESET de Ramsey (type="fitted" para um teste geral de especificação)
+teste_reset <- resettest(modelo_ff5_nefin, type = "fitted", power = 2:3)
+print(teste_reset)
+
+
+```
+Hipótese Nula ($H_0$): A especificação funcional (linear) do modelo é adequada.
+
+Interpretação: Como o $p$-value ($0.6333$) é muito maior que $0.05$ (nível de 
+significância de $5\%$), não rejeitamos a Hipótese Nula ($H_0$).
+
+Conclusão: Não há evidência estatística de que o modelo linear do Modelo de 5 
+Fatores sofra de erro de especificação ou omissão de variáveis relevantes 
+(representadas pelas potências do valor ajustado). A forma funcional linear 
+adotada é considerada adequada.
+
+**2.** 
+
+```{r}
+
+# A) Teste de White (usando a função bptest com o argumento studentize=FALSE)
+# O bptest com formula = ~ fitted(modelo)^2 + I(fitted(modelo)^2) é o teste White
+# para modelos com poucos regressores (sem interação entre regressores)
+
+teste_white <- bptest(modelo_ff5_nefin, studentize = FALSE)
+print(teste_white)
+
+# Implementação da Solução para Heterocedasticidade: Erros-Padrão Robustos de White (HAC)
+# O teste de White (heterocedasticidade) é uma violação da Hipótese H4: V(e_{t}|X_{t})=\sigma^{2}<\infty.
+
+matriz_cov_hc3 <- vcovHC(modelo_ff5_nefin, type = "HC3")
+
+# Aplicar a função coeftest para reexibir os resultados usando os erros-padrão robustos
+resultados_robust_hc3 <- coeftest(modelo_ff5_nefin, vcov = matriz_cov_hc3)
+print(resultados_robust_hc3)
+```
+
+
+Teste de White (Interpretação do Teste): O resultado do teste de White em si 
+
+Hipótese Nula ($H_0$): Homocedasticidade (a variância do erro é constante, 
+$V(e_t|\mathbf{X}_t) = \sigma^2$).
+
+Decisão Estatística: Como o $p$-value ($0.5183$) é maior que $0.05$ (nível de 
+significância de $5\%$), não rejeitamos a Hipótese Nula ($H_0$).
+
+Conclusão: Não há evidência estatística de heterocedasticidade nos resíduos do 
+Modelo de 5 Fatores. 
+
+
+**3.**  
+
+```{r}
+
+# Conversão para Série Temporal (ts) 
+# Necessário definir o start e a frequência (mensal = 12)
+# Supondo 180 observações (Item A), start=c(2010, 1) é incorreto
+# (180 meses = 15 anos). Se for jan/1998 a dez/2012, o start deve ser c(1998, 1).
+# Usaremos o start sugerido no enunciado c(1, 2010), mesmo que seja estranho.
+# Se o start for c(2010, 1) para 180 observações, o período seria 2010-2024.
+
+# CONVERSÃO (Assumindo que o start real do arquivo é jan/2010):
+dados_carteira_ts <- ts(dados_carteira[, -1], start = c(2010, 1), frequency = 12) # Excluindo a coluna date
+
+# Estimação do Modelo com dynlm
+modelo_ff5_dynlm <- dynlm(
+  ret_carteira_excedente ~ rm_minus_rf + smb + hml + wml + iml,
+  data = dados_carteira_ts
+)
+
+# Teste de Breusch-Godfrey (bgtest)
+# Testando para autocorrelação de ordem 1 (lag=1), a mais comum.
+teste_bg <- bgtest(modelo_ff5_dynlm, order = 1)
+print(teste_bg)
+```
+
+Hipótese Nula ($H_0$): Não há autocorrelação serial de ordem 1 nos resíduos.
+
+Interpretação: Como o $p$-value ($0.9623$) é muito maior que $0.05$, não 
+rejeitamos a Hipótese Nula ($H_0$).
+
+Conclusão: Não há evidência estatística de autocorrelação serial de primeira 
+ordem nos resíduos. A hipótese de não autocorrelação serial 
+($\text{Cov}(e_i, e_j|\mathbf{X}_t) = 0$ para $i \ne j$) é mantida.
+
+Consequências da Autocorrelação (Explicação): Se houvesse autocorrelação 
+(se $H_0$ fosse rejeitada), os estimadores de MQO ($\hat{\beta}$) permaneceriam 
+não viesados e consistentes, mas seriam ineficientes. O principal problema 
+seria o viés nos erros-padrão do MQO (tipicamente subestimados), levando a 
+valores $t$ e $F$ inflacionados e a conclusões erradas sobre a significância 
+dos fatores.
+
+
+**4.** 
+
+```{r}
+
+# Extração dos resíduos
+residuos <- residuals(modelo_ff5_nefin)
+
+# Teste de Shapiro-Wilk (adequado para amostras menores, < 5000)
+teste_shapiro <- shapiro.test(residuos)
+print(teste_shapiro)
+
+# Teste de Jarque-Bera (adequado para amostras maiores, assintótico)
+teste_jb <- JarqueBeraTest(residuos)
+print(teste_jb)
+```
+
+
+Os testes de normalidade apresentaram resultados conflitantes. 
+O Jarque-Bera rejeita a normalidade, enquanto o Shapiro-Wilk não.
+
+A diferença é comum em amostras de retornos financeiros. 
+O Jarque-Bera é mais sensível a desvios da normalidade causados por assimetria 
+e curtose (caudas pesadas), características típicas de retornos de ativos. 
+Sua rejeição da $H_0$ sugere que a distribuição é leptocúrtica (mais 
+"pontiaguda" e com caudas mais pesadas do que a normal). 
+
+O Shapiro-Wilk, embora poderoso para amostras pequenas, pode ser menos sensível 
+a esses desvios.
+
+A resposta deve ser fundamentada no Teste de Jarque-Bera. Isso ocorre porque, 
+para o tamanho da amostra ($T=180$), a propriedade assintótica de normalidade 
+dos estimadores (garantida pelo Teorema do Limite Central - TLC) é o que valida 
+os testes $t$ e $F$. No entanto, o Jarque-Bera indica que o desvio da 
+normalidade é significativo. 
+
+
+# Questão 3
+
+
+
+## A
+
+```{r}
+
+
+# Criar variáveis excedentes e salvar em dados_msft
+dados_msft <- capm5 %>%
+  transmute(
+    ret_msft_excedentes = msft - riskfree, # Variável dependente (y)
+    ret_mkt_excedentes = mkt - riskfree    # Variável explicativa (x)
+  )
+
+# Estimação do Modelo CAPM via MQO (lm)
+modelo_capm_msft <- lm(
+  ret_msft_excedentes ~ ret_mkt_excedentes,
+  data = dados_msft
+)
+
+# Exibição dos resultados da estimação
+broom::tidy(modelo_capm_msft)
+```
+
+A regressão estimada foi:
+$$\text{ret\_msft\_excedentes} = \alpha + \beta (\text{ret\_mkt\_excedentes}) + e$$
+
+1. Beta de Mercado ($\hat{\beta}$)
+Valor: $\hat{\beta} \approx 1.20$
+Significância: Altamente significativo ($p < 2.2e-16$).
+Interpretação: O beta estimado de $1.20$ sugere que a Microsoft tem um perfil 
+agressivo em relação ao mercado. Em média, para cada variação de $1\%$ no prêmio
+de risco de mercado (`ret_mkt_excedentes`), o retorno excedente da
+Microsoft varia em $1.20\%$.
+
+2. Alpha de Jensen ($\hat{\alpha}$)
+Valor: $\hat{\alpha} \approx 0.00325$ (ou $0.325\%$ ao mês).
+Significância: Não é significativo ($p=0.5910 > 0.05$).
+Interpretação: A ausência de significância estatística do Alpha sugere que, 
+segundo o MQO, o retorno da Microsoft é amplamente explicado pela sua exposição 
+ao risco de mercado. Não há evidência de retorno anormal residual.
+
+
+Embora os resultados do MQO sejam claros, a sua validade estatística é questionada pelo problema do erro de mensuração.
+
+No CAPM, a variável explicativa (`ret_mkt_excedentes`) é apenas uma 
+proxy (o índice S\&P 500) para a verdadeira carteira de mercado teórica, que é 
+inobservável. Ou seja, a variável explicativa é medida com erro.
+
+O erro de mensuração na variável explicativa (`ret_mkt_excedentes`) se 
+torna correlacionado com o termo de erro do modelo. 
+Isso viola a suposição crucial de exogeneidade do MQO ($\text{Cov}(\text{ret\_mkt\_excedentes}, e) \ne 0$).
+
+O estimador de MQO ($\hat{\beta}_j$) torna-se viesado e inconsistente, ou seja, 
+o estimador não converge para o verdadeiro Beta ($\beta$), mesmo que a amostra 
+($T$) seja muito grande.
+
+No contexto do CAPM com erro de mensuração clássico, o Beta estimado 
+($\hat{\beta}_j$) é viesado em direção a zero. O Beta $1.20$ obtido pelo MQO é 
+provavelmente uma subestimação do verdadeiro Beta da Microsoft.
+
+
+## B
+
+```{r}
+
+# Pipeline para criar a variável instrumental 'posicao' (rank)
+# Garante a ordem crescente e cria a posição (rank) de cada observação
+dados_msft <- dados_msft %>%
+  # Ordena os retornos excedentes de mercado em ordem crescente
+  arrange(ret_mkt_excedentes) %>%
+  # Cria a variável 'posicao' com base no rank.
+  mutate(posicao = rank(ret_mkt_excedentes))
+
+# Estimação da Regressão do Primeiro Estágio via MQO
+# Variável dependente: ret_mkt_excedentes (endógena)
+# Variável explicativa: posicao (instrumental)
+modelo_primeiro_estagio <- lm(
+  ret_mkt_excedentes ~ posicao,
+  data = dados_msft
+)
+
+# Exibição dos resultados
+broom::tidy(modelo_primeiro_estagio)
+```
+
+O coeficiente de `posicao` é estatisticamente significativo no primeiro estágio?
+
+Sim. O coeficiente $\hat{\gamma}_1$ para `posicao` é $0.000907$, e o 
+$p$-value associado é de $\mathbf{4.07 \times 10^{-96}}$.
+
+Como o $p$-value é extremamente pequeno (muito menor que $0.05$), rejeita-se 
+a hipótese nula $H_0: \gamma_1 = 0$. O coeficiente de `posicao` é altamente 
+significativo no primeiro estágio.
+
+A significância estatística do coeficiente de `posicao` ($|t| \approx 43.10$) 
+demonstra uma correlação estatística muito forte e inequívoca entre a posição da
+observação no `rank` de retornos e o próprio prêmio de risco de mercado 
+(`ret_mkt_excedentes`).
+Portanto, a variável `posicao` pode ser considerada um instrumento relevante
+para o `ret_mkt_excedentes`.
+
+
+
+## C 
+
+```{r}
+
+
+# Pipeline para obter os resíduos (v_hat) 
+# modelo_primeiro_estagio é a regressão de ret_mkt_excedentes ~ posicao
+dados_msft <- dados_msft %>%
+  mutate(
+    # Adiciona os resíduos do primeiro estágio (v_hat)
+    residuos_primeiro_estagio = residuals(modelo_primeiro_estagio)
+  )
+
+# Estimação da Regressão Aumentada (Teste de Hausman) via MQO
+# Variável dependente: ret_msft_excedentes (Y)
+# Regressores: ret_mkt_excedentes (X) e residuos_primeiro_estagio (v_hat)
+modelo_hausman_aumentado <- lm(
+  ret_msft_excedentes ~ ret_mkt_excedentes + residuos_primeiro_estagio,
+  data = dados_msft
+)
+
+# Exibição dos resultados da estimação para testar a significância de delta (o coeficiente de v_hat)
+broom::tidy(modelo_hausman_aumentado)
+
+```
+
+O Teste de Hausman manual (versão Wu-Hausman) visa verificar a endogeneidade da 
+variável `ret_mkt_excedentes` através da significância do coeficiente ($\delta$)
+associado aos resíduos do primeiro estágio ($\hat{v}$) na regressão aumentada:
+
+$$\text{ret\_msft\_excedentes} = \beta_1 + \beta_2 \text{ret\_mkt\_excedentes} + \delta \hat{v} + e$$
+
+O foco do teste está no coeficiente do termo `residuos_primeiro_estagio` 
+($\hat{\delta}$) ao nível de significância de $5\%$.
+
+Hipótese Nula ($H_0$): $\delta = 0$ (A variável `ret_mkt_excedentes` é exógena).
+Hipótese Alternativa ($H_A$): $\delta \ne 0$ (A variável `ret_mkt_excedentes` é endógena).
+
+Resultados:
+
+1.  Valor $p$ de $\hat{\delta}$: $0.04279$.
+2.  Nível de Significância ($\alpha$): $0.05$.
+3.  Como o $p$-value ($0.04279$) é menor que $0.05$, rejeitamos a Hipótese Nula ($H_0$).
+
+
+A rejeição da $H_0$ indica que o coeficiente dos resíduos ($\hat{\delta}$) é 
+estatisticamente diferente de zero ao nível de $5\%$.
+
+Concluímos que há evidência estatística de endogeneidade na variável 
+`ret_mkt_excedentes`. Ou seja, o prêmio de risco de mercado está correlacionado 
+com o termo de erro da regressão ($\text{Cov}(X, e)\ne0$).
+
+O estimador de Mínimos Quadrados Ordinários (MQO) para o Beta da Microsoft ($\hat{\beta}_{\text{mqo}} \approx 1.28$) é viesado e inconsistente, e o método 
+de Variáveis Instrumentais é o apropriado para obter um estimador consistente. 
+
+## D
+
+```{r}
+
+# Pipeline para criar a variável instrumental 'positivo'
+# Assume-se que 'dados_msft' já contém ret_mkt_excedentes e posicao
+dados_msft <- dados_msft %>%
+  mutate(
+    # positivo = 1 se o retorno excedente do mercado for positivo (> 0), 0 caso contrário.
+    positivo = if_else(ret_mkt_excedentes > 0, 1, 0)
+  )
+
+# Estimação da Regressão do Primeiro Estágio com dois instrumentos
+modelo_primeiro_estagio_d <- lm(
+  ret_mkt_excedentes ~ posicao + positivo,
+  data = dados_msft
+)
+
+# Exibição do resumo completo para obter o Teste F de significância conjunta
+sumario_primeiro_estagio_d <- summary(modelo_primeiro_estagio_d)
+print(sumario_primeiro_estagio_d)
+```
+
+O modelo estimado é:
+$$\text{ret\_mkt\_excedentes} = \gamma_0 + \gamma_1 \text{posicao} + \gamma_2 \text{positivo} + v$$
+
+
+O Teste $F$ avalia a Hipótese Nula ($H_0$) de que todos os coeficientes 
+angulares são zero:
+
+Hipótese Nula ($H_0$): $\gamma_1 = 0$ e $\gamma_2 = 0$ (Os instrumentos não são
+conjuntamente relevantes).
+Hipótese Alternativa ($H_1$): Pelo menos um dos $\gamma$'s é diferente de zero 
+(Os instrumentos são conjuntamente relevantes).
+
+Resultados:
+
+1.  Valor $p$ do Teste F: $\mathbf{p < 2.2e-16}$.
+2.  Nível de Significância ($\alpha$): $5\%$ ($\alpha=0.05$).
+3.  Como o $p$-value é extremamente pequeno (muito menor que $0.05$), rejeitamos
+a Hipótese Nula ($H_0$).
+
+A rejeição de $H_0$ significa que os instrumentos `posicao` e `positivo` são 
+conjuntamente significativos para explicar o `ret_mkt_excedentes`. 
+
+
+O $F\text{-statistic}$ é $951.3$, que é muito maior que 10.Logo, podemos 
+concluir que as variáveis instrumentais `posicao` e `positivo` são adequadamente
+relevantes. O modelo do primeiro estágio tem um poder explicativo muito alto 
+($R^2 \approx 91.5\%$), garantindo que a correlação entre os instrumentos e a 
+variável endógena (`ret_mkt_excedentes`) é forte, o que é essencial para o 
+método de Variáveis Instrumentais. 
+
+## E 
+
+```{r}
+
+# Pipeline para obter os resíduos (v_hat) da regressão do Item D
+# modelo_primeiro_estagio_d é a regressão de ret_mkt_excedentes ~ posicao + positivo
+dados_msft <- dados_msft %>%
+  mutate(
+    # Adiciona os resíduos do primeiro estágio do Item D
+    residuos_primeiro_estagio_d = residuals(modelo_primeiro_estagio_d)
+  )
+
+# Estimação da Regressão Aumentada (Teste de Hausman) via MQO
+# Regressores: ret_mkt_excedentes (variável endógena original) e residuos_primeiro_estagio_d (v_hat)
+modelo_hausman_aumentado_d <- lm(
+  ret_msft_excedentes ~ ret_mkt_excedentes + residuos_primeiro_estagio_d,
+  data = dados_msft
+)
+
+# Exibição dos resultados para testar a significância de delta (o coeficiente de v_hat)
+broom::tidy(modelo_hausman_aumentado_d)
+
+```
+
+
+
+O teste verifica a endogeneidade da variável `ret_mkt_excedentes` através da 
+significância do coeficiente ($\delta$) associado aos resíduos 
+($\hat{v}_{\text{D}}$) na regressão:
+$$\text{ret\_msft\_excedentes} = \beta_1 + \beta_2 \text{ret\_mkt\_excedentes} + \delta \hat{v}_{\text{D}} + e$$
+
+
+O foco está no termo `residuos_primeiro_estagio_d` (o $\delta$ da equação).
+
+
+O teste $t$ para $\hat{\delta}$ é o teste formal para exogeneidade.
+
+Hipótese Nula ($H_0$): $\delta = 0$ (`ret_mkt_excedentes` é exógeno).
+Hipótese Alternativa ($H_A$): $\delta \ne 0$ (`ret_mkt_excedentes` é endógeno).
+
+Resultados:
+
+1.  Valor $p$ de $\hat{\delta}$: $0.02874$.
+2.  Nível de Significância ($\alpha$): $5\%$ ($\alpha=0.05$).
+3.  Comparação: Como o $p$-value ($0.02874$) é menor que $0.05$, rejeitamos a 
+Hipótese Nula ($H_0$).
+
+A rejeição de $H_0: \delta = 0$ nos leva à seguinte conclusão:
+
+Não podemos concluir que o retorno do mercado (`ret_mkt_excedentes`) é 
+exógeno. O teste de Hausman (Wu-Hausman) demonstra que o coeficiente do resíduo
+($\hat{\delta}$) é estatisticamente significativo ao nível de $5\%$.
+
+Isso confirma a presença de endogeneidade no modelo, o que significa que o 
+estimador de MQO para o Beta da Microsoft ($\hat{\beta}_{\text{mqo}} \approx 1.28$) 
+é inconsistente. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
